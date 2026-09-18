@@ -4,9 +4,9 @@
 
 | Nama | NIM | Kontribusi |
 |---|---|---|
-| [nama 1] | [nim] | [pitfall/bagian yang dikerjakan] |
-| [nama 2] | [nim] | [pitfall/bagian yang dikerjakan] |
-| [nama 3] | [nim] | [pitfall/bagian yang dikerjakan] |
+| Misael Arafian Fonataba | 103072400017 | 1, 2 |
+| Julio Chrysanto Tanlain | 103072400110 | 3 |
+| Ibrahimovich Paradise | 103072400122 | 4 |
 
 ## Pitfall 1: [nama pitfall] — ditulis oleh [nama]
 
