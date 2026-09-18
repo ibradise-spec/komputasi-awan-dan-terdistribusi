@@ -28,9 +28,38 @@
 
 ---
 
-## Pitfall 3: [nama pitfall] — ditulis oleh [nama]
+## Pitfall 3: Asumsi “The Network Is Reliable” dan Tidak Adanya Timeout — ditulis oleh Julio Chrysanto Tanlain
 
-(ulangi struktur di atas)
+**Bukti di skenario:** Tim menemukan asumsi dalam kode berupa `# network is always reliable`, no need for retry. Selain itu, tidak ada timeout pada pemanggilan antarservice, sehingga modul pesanan menunggu respons modul pembayaran tanpa batas waktu.
+
+**Kenapa ini keliru:** Asumsi “network is always reliable” keliru karena mengabaikan kemungkinan koneksi terputus, respons terlambat, atau respons tidak diterima. Anggapan “no need for retry” juga mengabaikan kemungkinan bahwa permintaan yang terganggu sementara dapat berhasil jika dicoba kembali setelah gangguan pulih, meskipun retry perlu dibatasi dan hanya dilakukan jika aman. Selain itu, tidak adanya timeout membuat modul pesanan bergantung pada respons modul pembayaran yang belum tentu datang. Akibatnya, modul pesanan bisa terus menunggu dan menahan resource yang dibutuhkan untuk menangani pesanan lain.
+
+**Dampak ke FoodGo:** 
+1. Gangguan komunikasi yang sebenarnya sementara bisa mengganggu pemrosesan permintaan kalau tidak ditangani.
+2. Tanpa timeout, pemanggilan yang terus menunggu dapat menahan resource seperti koneksi dan memori. Kalau menggunakan pemanggilan blocking, slot worker atau thread juga bisa tertahan. Jadi, saat pesanan meningkat, resource tersebut belum bisa dipakai untuk memproses pesanan lain. Akibatnya, kapasitas yang tersedia untuk melayani permintaan baru berkurang dan waktu tunggu bisa semakin panjang.
+3. Pengalaman pengguna bisa memburuk karena harus menunggu lama tanpa kejelasan apakah pesanan atau pembayarannya sudah berhasil.
+
+**Solusi desain awal:** 
+**1. Memberikan timeout pada pemanggilan antarservice.**
+Timeout memberikan batas waktu bagi modul pesanan untuk menunggu respons modul pembayaran. Kalau batas waktunya terlewati, modul pesanan berhenti menunggu dan melepaskan resource lokal yang sudah tidak diperlukan.Setelah itu, aplikasi memberi tahu pengguna bahwa status pembayaran belum terkonfirmasi. Pembayaran tidak langsung dianggap gagal, karena berhenti menunggu tidak otomatis menghentikan proses di layanan pembayaran.Untuk mengetahui hasilnya, sistem bisa memeriksa status di latar belakang menggunakan identitas transaksi yang sama atau menerima notifikasi dari layanan pembayaran jika tersedia. Dengan begitu, request awal tidak terus menunggu sampai hasil pembayaran diketahui. Pengguna juga perlu diberi cara untuk melihat pembaruan statusnya.
+Pemeriksaan status perlu diberi jeda dan batas percobaan supaya tidak menambah beban secara berlebihan. Sistem juga tidak langsung membuat transaksi pembayaran baru, karena transaksi sebelumnya mungkin sudah berhasil.
+
+**2. Menerapkan rate limiting per pengguna.**
+
+Rate limiting membatasi jumlah request yang dapat dikirim setiap pengguna dalam periode tertentu. Tujuannya membantu mengurangi risiko overload dan membatasi satu pengguna yang mengirim terlalu banyak permintaan.Pembatasan ini diterapkan pada permintaan pembuatan pesanan, sebelum server menjalankan pekerjaan yang lebih berat. Kalau batasnya terlampaui, permintaan tambahan ditolak sementara dan pengguna diberi tahu kapan bisa mencoba lagi.Permintaan untuk memulai pembayaran bisa memiliki batas tersendiri. Pemeriksaan status pembayaran juga perlu dibedakan dari pembuatan pesanan supaya pengguna tetap bisa mengetahui hasil transaksi yang sudah berjalan tanpa melakukan pengecekan berlebihan.Angka batas request belum ditetapkan karena belum ada data pengujian kapasitas. Penentuannya perlu mempertimbangkan penggunaan yang wajar, resource yang dibutuhkan setiap jenis request, dan kapasitas server.Pembatasan per pengguna tetap memiliki keterbatasan. Kalau banyak pengguna mengirim request secara bersamaan, total bebannya masih bisa besar meskipun setiap pengguna belum melewati batas.
+
+**3. Menambahkan retry terbatas dengan backoff.**
+Retry digunakan untuk mencoba kembali permintaan yang mengalami gangguan sementara, seperti koneksi terputus atau layanan sementara tidak tersedia. Jumlah percobaan dan total waktu penanganannya dibatasi. Setiap percobaan tetap menggunakan timeout dan diberi jeda yang bisa diperpanjang agar layanan punya kesempatan pulih.Untuk pembayaran, setiap pengulangan menggunakan kunci idempotensi yang sama untuk satu operasi pembayaran. Layanan pembayaran harus mendukung pengenalan kunci tersebut supaya request yang diulang tidak menghasilkan tagihan kedua.Kalau batas percobaan sudah tercapai, sistem menghentikan retry. Jika hasil pembayaran masih belum diketahui, statusnya tetap belum terkonfirmasi sampai ada informasi hasil transaksi yang jelas.
+
+
+**Trade-off:** 
+* **Timeout terlalu singkat:** sistem berhenti menunggu sebelum respons diterima, padahal prosesnya masih berpotensi berhasil.
+* **Timeout terlalu panjang:** resource tertahan lebih lama sehingga permintaan lain bisa ikut menunggu.
+* **Rate limiting terlalu ketat:** request pengguna yang sah bisa ditolak karena aktivitas wajarnya melewati batas yang ditetapkan terlalu rendah.
+* **Pemeriksaan status setelah timeout:** sistem membutuhkan proses tambahan untuk memastikan hasil pembayaran. Pengecekan berkala menambah request, sedangkan penggunaan notifikasi perlu menangani kemungkinan notifikasi terlambat atau dikirim berulang.
+* **Retry menambah request dan waktu tunggu:** percobaan tambahan bisa membantu saat gangguan sementara, tetapi juga dapat memperparah beban kalau layanan sudah kewalahan.
+* **Idempotensi membutuhkan penanganan tambahan:** sistem perlu menyimpan dan memeriksa identitas operasi agar pengulangan dikenali. Kalau penanganannya tidak benar, retry pembayaran berisiko menghasilkan tagihan ganda.
+* **Pemeriksaan status membutuhkan proses tambahan:** pengecekan berkala menambah request, sedangkan penggunaan notifikasi perlu menangani kemungkinan notifikasi terlambat atau dikirim berulang.
 
 ---
 
