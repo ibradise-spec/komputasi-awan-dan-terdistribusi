@@ -159,7 +159,7 @@ Kembalinya Fallacies Jaringan: Komunikasi antar modul yang awalnya in-memory ber
 Integritas Data & Kompleksitas: Hilangnya transaksi atomik basis data (single ACID transaction) memaksa tim mengelola eventual consistency atau Saga Pattern, yang jauh lebih rawan bug logika dan menuntut distributed tracing untuk debugging. |
 
 
-|19 -09-2026 |Chat gpt|Aku sedang mengerjakan tugas analisis pitfall sistem terdistribusi dengan aturan AI Level 2. AI boleh membantu brainstorming dan menyusun kerangka berpikir, tetapi analisis akhir harus kutulis sendiri.
+|19 -09-2026 |Chatgpt|Aku sedang mengerjakan tugas analisis pitfall sistem terdistribusi dengan aturan AI Level 2. AI boleh membantu brainstorming dan menyusun kerangka berpikir, tetapi analisis akhir harus kutulis sendiri.
 Bagian skenario yang menjadi tanggung jawabku:
 di studi kasus foodGo aplikasi pesan-antar makanan) mengalami kegagalan sistem saat pesanan melonjak (misalnya jam makan siang atau saat promo besar).  
 Tim menemukan bahwa kode mereka menulis asumsi seperti `# network is always reliable, no need for retry` dan tidak ada *timeout* sama sekali pada pemanggilan antar service (modul pesanan memanggil modul pembayaran dan menunggu tanpa batas waktu)  
@@ -231,5 +231,46 @@ Mekanisme ini memantau kegagalan. Ketika ambang tertentu tercapai, panggilan ke 
 * **Pemeriksaan status setelah timeout:** sistem membutuhkan proses tambahan untuk memastikan hasil pembayaran. Pengecekan berkala menambah request, sedangkan penggunaan notifikasi perlu menangani kemungkinan notifikasi terlambat atau dikirim berulang.
 * **Retry menambah request dan waktu tunggu:** percobaan tambahan bisa membantu saat gangguan sementara, tetapi juga dapat memperparah beban kalau layanan sudah kewalahan.
 * **Retry menambah beban :** percobaan tambahan dapat memperberat layanan.
-* **circuit breaker memperlambat layanan yang sudah pulih terlambat digunakan kembali:** Circuit breaker berisiko menolak request terlalu cepat atau tetap membatasi akses saat layanan sudah pulih. Pengaturan ambangnya juga menambah kerumitan.|
-| ... | ... | ... | ... | ... |
+* **circuit breaker memperlambat layanan yang sudah pulih terlambat digunakan kembali:** Circuit breaker berisiko menolak request terlalu cepat atau tetap membatasi akses saat layanan sudah pulih. Pengaturan ambangnya juga menambah kerumitan.
+
+  |
+| 19-09-2026 | Chatgpt | okeh lanjut, cukup dengan solusi dan trade off, 
+
+ walaupun kita sudah bahas sejauh ini dari yang sudah kita bahas sebelumnya, tapi apa sih dampak spesifik dan kenapa sih anggapan "Tim menemukan asumsi dalam kode berupa `# network is always reliable`, no need for retry. Selain itu, tidak ada timeout pada pemanggilan antarservice, sehingga modul pesanan menunggu respons modul pembayaran tanpa batas waktu.  " keliru aku butuh penjelasan lebih spesifik dan penjelasan yang lebih jelas | Julio, **dugaanmu masuk akal: penantian tanpa batas bisa membuat gangguan di layanan pembayaran ikut menghambat layanan pesanan.** Hubungan sebab-akibatnya perlu dijelaskan lebih jauh daripada sekadar “server menjadi berat”.
+
+Anggapan **`network is always reliable`** keliru karena komunikasi antarservice bisa mengalami gangguan, sekalipun kode kedua layanan sudah benar. Misalnya, koneksi terputus sementara atau komunikasi melambat saat trafik tinggi. Layanan pembayaran juga bisa terlambat merespons karena sedang kewalahan. Artinya, **mengirim request tidak menjamin respons berhasil diterima dalam waktu yang dibutuhkan.** [Microsoft: gangguan sementara pada komunikasi layanan](https://learn.microsoft.com/en-us/azure/architecture/best-practices/transient-faults).
+
+Komentar **`no need for retry`** menunjukkan bahwa kemungkinan gangguan sementara tersebut diabaikan. Contohnya, koneksi gagal sesaat dan pemanggilan mengembalikan error. Operasi pesanan bisa berakhir gagal walaupun layanan kembali normal beberapa detik kemudian. Keputusan memakai retry memang bergantung pada jenis operasi, tetapi alasan “tidak perlu karena jaringan pasti andal” tidak tepat. [Microsoft: Retry pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry).
+
+**Ketiadaan timeout membuat modul pesanan tidak memiliki batas waktu tunggu yang ditentukan aplikasi.** Jika respons tidak datang dan tidak ada error atau mekanisme lain yang menghentikan panggilan, request dapat terus menggantung. Selama itu, sebagian sumber daya masih terikat pada pekerjaan yang belum selesai.
+
+Bayangkan contoh berikut. **Angka ini hanya ilustrasi**, dengan asumsi server pesanan memiliki **10 worker**, yaitu proses atau thread yang masing-masing menangani satu request sampai selesai:
+
+1. Sepuluh pengguna membuat pesanan. Semua worker memanggil layanan pembayaran.
+2. Layanan pembayaran mengalami gangguan sehingga responsnya tidak kunjung datang.
+3. Kesepuluh worker tetap menunggu. Belum ada worker yang bebas untuk menangani request berikutnya.
+4. Pengguna ke-11 harus mengantre, bahkan sebelum pesanannya sempat diproses. Ketika pengguna terus berdatangan, antrean bertambah.
+
+Dalam contoh ini, sumber daya yang dapat tertahan adalah:
+
+| Sumber daya               | Apa yang terjadi selama menunggu?                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Slot worker**           | Tetap ditempati request lama sehingga kapasitas untuk menangani request baru berkurang.              |
+| **Koneksi ke pembayaran** | Koneksi yang masih digunakan oleh panggilan tertunda belum tersedia untuk panggilan lain.            |
+| **Memori**                | Data dan status request yang belum selesai tetap disimpan. Antrean tambahan juga membutuhkan memori. |
+
+Lama menunggu memang dapat memperpanjang penggunaan koneksi, thread, dan memori. Sumber daya yang benar-benar tertahan bergantung pada implementasi servernya. [Microsoft: dampak waktu tunggu terhadap sumber daya](https://learn.microsoft.com/en-us/azure/architecture/best-practices/transient-faults).
+
+Dampak spesifiknya pada FoodGo kemudian bisa berupa:
+
+* **Waktu respons meningkat:** pengguna menunggu giliran diproses, lalu masih harus menunggu pembayaran.
+* **Jumlah pesanan yang selesai per detik menurun:** banyak kapasitas tertahan untuk menunggu.
+* **Request baru gagal dilayani:** antrean atau kapasitas koneksi bisa mencapai batas.
+* **Gangguan menyebar:** masalah yang awalnya terjadi pada pembayaran ikut membuat layanan pesanan tidak tersedia. Penyebaran gangguan seperti ini disebut *cascading failure*. [Google SRE: kegagalan berantai dan kehabisan sumber daya](https://sre.google/sre-book/addressing-cascading-failures/).
+
+**Menunggu tidak otomatis membuat CPU bekerja keras.** Dalam contoh tadi, server kesulitan melayani pengguna karena slot penanganannya penuh, walaupun pekerjaan yang menempatinya sedang menunggu.
+
+Ada juga dampak pada **kejelasan status transaksi**. Pembayaran mungkin sudah berhasil diproses, tetapi respons konfirmasinya gagal sampai ke modul pesanan. Akibatnya, pengguna bisa sudah terbayar sementara pesanan masih terlihat menunggu konfirmasi. **Belum menerima respons tidak cukup untuk memastikan pembayaran gagal.** [Microsoft: operasi berhasil tetapi respons tidak terkirim](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry).
+ | Kenapa ini keliru: Asumsi “network is always reliable” keliru karena mengabaikan kemungkinan koneksi terputus, respons terlambat, atau respons tidak diterima. Anggapan “no need for retry” juga mengabaikan kemungkinan bahwa permintaan yang terganggu sementara dapat berhasil jika dicoba kembali setelah gangguan pulih, meskipun retry perlu dibatasi dan hanya dilakukan jika aman. Selain itu, tidak adanya timeout membuat modul pesanan bergantung pada respons modul pembayaran yang belum tentu datang. Akibatnya, modul pesanan bisa terus menunggu dan menahan resource yang dibutuhkan untuk menangani pesanan lain.
+
+Dampak ke FoodGo: Request yang terus menunggu dapat menahan koneksi, memori, atau slot worker. Saat pesanan melonjak, kapasitas untuk melayani request baru berkurang, antrean bertambah, dan aplikasi melambat atau gagal melayani pengguna. Gangguan pada pembayaran akhirnya bisa ikut menghambat layanan pesanan. Status pesanan juga dapat tetap menunggu meskipun pembayaran sudah berhasil, apabila respons konfirmasinya belum diterima. |
