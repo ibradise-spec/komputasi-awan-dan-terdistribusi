@@ -157,3 +157,80 @@ Pemisahan arsitektur dan desentralisasi proses membawa biaya operasional (operat
 
 Kembalinya Fallacies Jaringan: Komunikasi antar modul yang awalnya in-memory berubah menjadi network calls, yang menimbulkan latensi tambahan dan overhead serialisasi (transport cost).
 Integritas Data & Kompleksitas: Hilangnya transaksi atomik basis data (single ACID transaction) memaksa tim mengelola eventual consistency atau Saga Pattern, yang jauh lebih rawan bug logika dan menuntut distributed tracing untuk debugging. |
+
+
+| Tanggal | Tool AI | Prompt yang diberikan | Ringkasan saran/ide AI | Bagaimana diolah jadi tulisan/kode sendiri |
+|19 -09-2026 |Chat gpt|Aku sedang mengerjakan tugas analisis pitfall sistem terdistribusi dengan aturan AI Level 2. AI boleh membantu brainstorming dan menyusun kerangka berpikir, tetapi analisis akhir harus kutulis sendiri.
+Bagian skenario yang menjadi tanggung jawabku:
+di studi kasus foodGo aplikasi pesan-antar makanan) mengalami kegagalan sistem saat pesanan melonjak (misalnya jam makan siang atau saat promo besar).  
+Tim menemukan bahwa kode mereka menulis asumsi seperti `# network is always reliable, no need for retry` dan tidak ada *timeout* sama sekali pada pemanggilan antar service (modul pesanan memanggil modul pembayaran dan menunggu tanpa batas waktu)  
+pemikiran awalku :
+1. Aku sudah memahami bahwa pitfall-nya berkaitan dengan kesalahan menganggap jaringan selalu bisa diandalkan.
+2. anggapan network always reliable salah satu sumber masalah ini dan dengan tidak adanya timeout juga menjadi masalah karena modul pesanan bisa terus menunggu respons pembayaran.
+3. pitfallnnya berkaitan dengan anggapan network selalu realible
+4. trus karna tanpa time out jadinya menghabiskan resource, akibatnya jadi ngelag
+5.  solusi awalku yaity membatasi jumlah request dan memberikan time out, tapi aaku masih butuh penjelasan kedua solusi tersebut
+nah aku juga butuh tau trade off dari pemikiran awalku, dan apakah ada solusi yang lebih baik , dan jika ada apakah ada resiko dari solusi tersebut?|Identifikasi kamu sudah tepat, Julio. Yang masih perlu diperjelas adalah mekanisme dampaknya dan fungsi masing-masing solusi. Penilaianku:
+
+Asumsi “network is always reliable” sudah benar kamu identifikasi. Ketiadaan timeout merupakan keputusan desain yang perlu kamu bahas bersama asumsi tersebut.
+“Memboroskan sumber daya dan membuat server berat” masih terlalu umum. Coba pikirkan: sumber daya apa yang tertahan saat menunggu? Bisa berupa koneksi, memori, atau slot worker, bergantung implementasinya. Menunggu respons tidak otomatis berarti CPU bekerja keras. Penjelasan sumber daya yang tertahan.
+
+Ide membatasi 10 request per menit disebut rate limiting. Itu bisa membantu mengendalikan beban, tetapi fungsinya berbeda dengan timeout:
+
+Mekanisme	Yang dibatasi
+Rate limiting	Jumlah request dalam rentang waktu tertentu
+Timeout	Lama menunggu suatu operasi
+
+Request yang sudah diterima tetap bisa menunggu terlalu lama meskipun jumlah request dibatasi. Angka 10 per menit juga masih contoh: perlu dijelaskan berlaku per pengguna atau seluruh sistem, serta dasar pemilihannya. Penjelasan rate limiting.
+
+Ide timeout relevan, tetapi tentukan tempat penerapannya. Untuk bagianmu, pikirkan batas tunggu pada pemanggilan ke layanan pembayaran. Menghentikan animasi loading di layar saja tidak cukup. Ingat juga: pemanggil berhenti menunggu belum membuktikan pembayaran gagal atau berhenti diproses. Karena itu, mencoba ulang pembayaran perlu mempertimbangkan risiko operasi ganda. Penjelasan retry dan idempotensi.
+Saat pemanggilan layanan menunggu, sumber daya seperti koneksi, memori, atau slot worker dapat tetap terpakai, bergantung implementasinya. Jadi, “server berat” belum tentu berarti CPU bekerja keras; bisa juga kapasitas untuk melayani permintaan lain semakin terbatas. Penjelasan sumber daya yang tertahan.
+
+Trade-off berarti konsekuensi yang kamu terima untuk mendapatkan suatu manfaat. Solusi bisa memperbaiki satu sisi sekaligus menambah batasan atau risiko di sisi lain.
+
+Untuk dua ide awalmu, perbedaannya seperti ini:
+
+Solusi	Cara kerja dan manfaat	Trade-off
+Rate limiting	Membatasi jumlah request dalam periode tertentu, misalnya per pengguna per menit. Membantu mengendalikan laju permintaan.	Batas terlalu ketat bisa menolak permintaan pengguna yang sah. Batas terlalu longgar kurang membantu melindungi kapasitas.
+Timeout	Menentukan berapa lama pemanggil bersedia menunggu respons sebelum berhenti menunggu.	Terlalu singkat bisa membuat respons yang sebenarnya masih akan berhasil dianggap terlambat. Terlalu panjang membuat sumber daya tertahan lebih lama.
+
+Rate limiting mengendalikan berapa banyak request yang boleh masuk atau dikirim. Ia tidak menentukan kapan penantian suatu request berakhir. Karena itu, keduanya bisa saling melengkapi. Angka seperti 10 request per menit perlu punya dasar kapasitas dan kejelasan cakupan: per pengguna, per layanan, atau seluruh sistem. Penjelasan rate limiting.
+
+Ada satu hal penting tentang timeout: berhenti menunggu tidak otomatis menghentikan pekerjaan di layanan tujuan. Misalnya, sebuah operasi mungkin sudah berhasil, tetapi responsnya belum sampai. Timeout membuat hasilnya belum diketahui oleh pemanggil; bukan bukti pasti bahwa operasinya gagal. Penjelasan kegagalan respons dan pengulangan operasi.
+
+Untuk mengembangkan pilihan solusi, kamu bisa mempertimbangkan dua mekanisme berikut:
+
+Retry terbatas dengan backoff, untuk kegagalan sementara.
+Retry berarti mencoba kembali. Backoff berarti memberi jeda yang semakin panjang sebelum mencoba lagi. Jumlah percobaannya tetap dibatasi.
+
+Manfaatnya: operasi mendapat kesempatan berhasil setelah gangguan sementara pulih.
+
+Risikonya: percobaan tambahan dapat memperberat layanan yang sudah kewalahan. Pengulangan juga bisa menggandakan tindakan jika operasinya tidak aman diulang. Karena itu, pelajari idempotensi, yaitu pengulangan operasi yang tidak menambah efek setelah pelaksanaan pertama. Penjelasan retry dan risikonya.
+
+Circuit breaker, untuk kegagalan yang berulang.
+Mekanisme ini memantau kegagalan. Ketika ambang tertentu tercapai, panggilan ke layanan tersebut dihentikan sementara. Setelah jeda, sejumlah kecil panggilan dicoba kembali untuk memeriksa pemulihan.
+
+Manfaatnya: mengurangi panggilan yang kemungkinan besar akan gagal dan memberi layanan kesempatan pulih.
+Risikonya: ambang yang kurang tepat bisa menghentikan panggilan terlalu cepat, atau membuat layanan yang sudah pulih belum segera digunakan kembali. Pengaturannya juga menambah kerumitan. Penjelasan circuit breaker.
+Untuk masalah menunggu tanpa batas, timeout pada pemanggilan antarservice merupakan prioritas paling langsung. Setelah itu, pertimbangkan retry untuk gangguan sementara yang aman dicoba ulang, dan circuit breaker bila kegagalan terus berulang. Rate limiting tetap relevan sebagai pengendalian trafik, tetapi alasan penggunaannya perlu kamu jelaskan tersendiri.|**Bukti di skenario:** Tim menemukan asumsi dalam kode berupa `# network is always reliable`, no need for retry. Selain itu, tidak ada timeout pada pemanggilan antarservice, sehingga modul pesanan menunggu respons modul pembayaran tanpa batas waktu.
+
+**Kenapa ini keliru:** Asumsi “network is always reliable” keliru karena mengabaikan kemungkinan koneksi terputus, respons terlambat, atau respons tidak diterima. Anggapan “no need for retry” juga mengabaikan kemungkinan bahwa permintaan yang terganggu sementara dapat berhasil jika dicoba kembali setelah gangguan pulih, meskipun retry perlu dibatasi dan hanya dilakukan jika aman. Selain itu, tidak adanya timeout membuat modul pesanan bergantung pada respons modul pembayaran yang belum tentu datang. Akibatnya, modul pesanan bisa terus menunggu dan menahan resource yang dibutuhkan untuk menangani pesanan lain.
+**Solusi desain awal:** 
+**1. Memberikan timeout pada pemanggilan antarservice:**
+Timeout memberikan batas waktu bagi modul pesanan untuk menunggu respons modul pembayaran. Kalau batas waktunya terlewati, modul pesanan berhenti menunggu dan melepaskan resource yang sudah tidak diperlukan. Pengguna diberi tahu bahwa hasil pembayaran belum diketahui. Sistem kemudian memeriksa hasilnya di latar belakang dengan identitas transaksi yang sama.
+
+**2. Menambahkan retry terbatas dengan backoff:**
+Retry digunakan untuk mencoba kembali permintaan yang mengalami gangguan sementara, seperti koneksi terputus atau layanan sementara tidak tersedia. Jumlah percobaan dan total waktu penanganannya dibatasi. Setiap percobaan tetap menggunakan timeout dan diberi jeda yang bisa diperpanjang agar layanan punya kesempatan pulih. Kalau batas percobaan sudah tercapai, sistem menghentikan retry.
+
+**3. Circuit breaker, untuk kegagalan yang berulang:**
+Mekanisme ini memantau kegagalan. Ketika ambang tertentu tercapai, panggilan ke layanan tersebut dihentikan sementara
+
+
+**Trade-off:** 
+* **Timeout terlalu singkat:** sistem berhenti menunggu sebelum respons diterima, padahal prosesnya masih berpotensi berhasil.
+* **Timeout terlalu panjang:** resource tertahan lebih lama sehingga permintaan lain bisa ikut menunggu.
+* **Pemeriksaan status setelah timeout:** sistem membutuhkan proses tambahan untuk memastikan hasil pembayaran. Pengecekan berkala menambah request, sedangkan penggunaan notifikasi perlu menangani kemungkinan notifikasi terlambat atau dikirim berulang.
+* **Retry menambah request dan waktu tunggu:** percobaan tambahan bisa membantu saat gangguan sementara, tetapi juga dapat memperparah beban kalau layanan sudah kewalahan.
+* **Retry menambah beban :** percobaan tambahan dapat memperberat layanan.
+* **circuit breaker memperlambat layanan yang sudah pulih terlambat digunakan kembali:** Circuit breaker berisiko menolak request terlalu cepat atau tetap membatasi akses saat layanan sudah pulih. Pengaturan ambangnya juga menambah kerumitan.|
+| ... | ... | ... | ... | ... |
