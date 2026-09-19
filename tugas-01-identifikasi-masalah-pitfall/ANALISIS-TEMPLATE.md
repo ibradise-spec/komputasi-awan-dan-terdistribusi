@@ -49,10 +49,7 @@ Server backend kadang crash total dan perlu di-restart manual.
 
 **Kenapa ini keliru:** Asumsi “network is always reliable” keliru karena mengabaikan kemungkinan koneksi terputus, respons terlambat, atau respons tidak diterima. Anggapan “no need for retry” juga mengabaikan kemungkinan bahwa permintaan yang terganggu sementara dapat berhasil jika dicoba kembali setelah gangguan pulih, meskipun retry perlu dibatasi dan hanya dilakukan jika aman. Selain itu, tidak adanya timeout membuat modul pesanan bergantung pada respons modul pembayaran yang belum tentu datang. Akibatnya, modul pesanan bisa terus menunggu dan menahan resource yang dibutuhkan untuk menangani pesanan lain.
 
-**Dampak ke FoodGo:** 
-1. Gangguan jaringan sementara bisa membuat pesanan tertunda atau gagal diproses jika sistem tidak menanganinya
-2. Tanpa timeout, pemanggilan yang terus menunggu dapat menahan resource seperti koneksi dan memori. Kalau menggunakan pemanggilan blocking, slot worker atau thread juga bisa tertahan. Jadi, saat pesanan meningkat, resource tersebut belum bisa dipakai untuk memproses pesanan lain. Akibatnya, kapasitas yang tersedia untuk melayani permintaan baru berkurang dan waktu tunggu bisa semakin panjang.
-3. Pengalaman pengguna bisa memburuk karena harus menunggu lama tanpa kejelasan apakah pesanan atau pembayarannya sudah berhasil.
+**Dampak ke FoodGo:** Request yang terus menunggu dapat menahan koneksi, memori, atau slot worker. Saat pesanan melonjak, kapasitas untuk melayani request baru berkurang, antrean bertambah, dan aplikasi melambat atau gagal melayani pengguna. Gangguan pada pembayaran akhirnya bisa ikut menghambat layanan pesanan. Status pesanan juga dapat tetap menunggu meskipun pembayaran sudah berhasil, apabila respons konfirmasinya belum diterima.
 
 **Solusi desain awal:** 
 **1. Memberikan timeout pada pemanggilan antarservice:**
@@ -64,13 +61,10 @@ Retry digunakan untuk mencoba kembali permintaan yang mengalami gangguan sementa
 **3. Circuit breaker, untuk kegagalan yang berulang:**
 Mekanisme ini memantau kegagalan. Ketika ambang tertentu tercapai, panggilan ke layanan tersebut dihentikan sementara
 
-
 **Trade-off:** 
 * **Timeout terlalu singkat:** sistem berhenti menunggu sebelum respons diterima, padahal prosesnya masih berpotensi berhasil.
 * **Timeout terlalu panjang:** resource tertahan lebih lama sehingga permintaan lain bisa ikut menunggu.
-* **Pemeriksaan status setelah timeout:** sistem membutuhkan proses tambahan untuk memastikan hasil pembayaran. Pengecekan berkala menambah request, sedangkan penggunaan notifikasi perlu menangani kemungkinan notifikasi terlambat atau dikirim berulang.
 * **Retry menambah request dan waktu tunggu:** percobaan tambahan bisa membantu saat gangguan sementara, tetapi juga dapat memperparah beban kalau layanan sudah kewalahan.
-* **Retry menambah beban :** percobaan tambahan dapat memperberat layanan.
 * **circuit breaker memperlambat layanan yang sudah pulih terlambat digunakan kembali:** Circuit breaker berisiko menolak request terlalu cepat atau tetap membatasi akses saat layanan sudah pulih. Pengaturan ambangnya juga menambah kerumitan.
 
 ---
