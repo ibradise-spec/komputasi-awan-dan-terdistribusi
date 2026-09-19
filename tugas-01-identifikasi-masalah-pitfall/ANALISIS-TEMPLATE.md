@@ -71,8 +71,6 @@ Retry digunakan untuk mencoba kembali permintaan yang mengalami gangguan sementa
 * **Rate limiting terlalu ketat:** request pengguna yang sah bisa ditolak karena aktivitas wajarnya melewati batas yang ditetapkan terlalu rendah.
 * **Pemeriksaan status setelah timeout:** sistem membutuhkan proses tambahan untuk memastikan hasil pembayaran. Pengecekan berkala menambah request, sedangkan penggunaan notifikasi perlu menangani kemungkinan notifikasi terlambat atau dikirim berulang.
 * **Retry menambah request dan waktu tunggu:** percobaan tambahan bisa membantu saat gangguan sementara, tetapi juga dapat memperparah beban kalau layanan sudah kewalahan.
-* **Idempotensi membutuhkan penanganan tambahan:** sistem perlu menyimpan dan memeriksa identitas operasi agar pengulangan dikenali. Kalau penanganannya tidak benar, retry pembayaran berisiko menghasilkan tagihan ganda.
-* **Pemeriksaan status membutuhkan proses tambahan:** pengecekan berkala menambah request, sedangkan penggunaan notifikasi perlu menangani kemungkinan notifikasi terlambat atau dikirim berulang.
 
 ---
 
