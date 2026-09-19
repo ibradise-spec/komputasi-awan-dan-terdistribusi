@@ -64,6 +64,29 @@ Retry digunakan untuk mencoba kembali permintaan yang mengalami gangguan sementa
 
 ---
 
+## Pitfall 4: Single Point of Failure (SPoF) & Ketiadaan Isolasi Sumber Daya (Bulkhead) pada Monolitik — ditulis oleh Ibrahimovich Paradise
+
+**Bukti di skenario:**  
+Saat trafik naik, satu server yang menangani semua modul (pesanan, pembayaran, notifikasi kurir) kewalahan karena semuanya berjalan di satu proses monolitik yang sama yang berujung pada Server backend kadang crash total dan perlu di-restart manual.
+
+**Kenapa ini keliru:**  
+Desain arsitektur FoodGo menyatukan seluruh domain bisnis ke dalam satu proses tunggal (shared runtime) tanpa isolasi sumber daya (failure domain isolation atau bulkhead pattern). Mengasumsikan satu proses server dapat menyerap beban heterogen secara seragam adalah kekeliruan. Modul pesanan yang butuh latensi rendah harus berbagi CPU, thread pool, dan memory dengan modul pembayaran dan notifikasi yang bergantung pada I/O jaringan eksternal.
+
+**Dampak ke FoodGo:**  
+Ketika modul pembayaran atau notifikasi mengalami keterlambatan eksternal, thread eksekusi tertahan (thread starvation). Karena pool thread digunakan bersama, modul pesanan yang kodenya sehat tidak lagi mendapat jatah komputasi. Antrean request yang menumpuk tak terkelola memicu lonjakan memori hingga OS melakukan terminasi paksa (Out-Of-Memory kill). Ketiadaan redundansi (Single Point of Failure) dan mekanisme self-healing/health-check membuat satu kegagalan modul melumpuhkan seluruh platform FoodGo secara total dan menuntut restart manual.
+
+**Solusi desain awal:**  
+1. **Penerapan Redundansi Horizontal (Short-term):** Menjalankan beberapa instance backend monolitik secara bersamaan di balik Load Balancer + horizontal scaling untuk mengeliminasi SPoF.
+2. **Asynchronous Decoupling via Message Queue:** Mengisolasi modul notifikasi dan proses downstream pembayaran ke antrean pesan (event-driven worker), sehingga modul pesanan tidak menunggu proses I/O selesai.
+3. **Pemisahan Modul Bertahap (*Modular Monolith to Microservices*):** Memisahkan modul pembayaran dan notifikasi menjadi service terpisah dengan alokasi resource komputasi mandiri.
+
+**Trade-off:**  
+Pemisahan arsitektur dan desentralisasi proses membawa biaya operasional (operational overhead) yang signifikan:
+- **Kembalinya Fallacies Jaringan:** Komunikasi antar modul yang awalnya in-memory berubah menjadi network calls, yang menimbulkan latensi tambahan dan overhead serialisasi (transport cost).
+- **Integritas Data & Kompleksitas:** Hilangnya transaksi atomik basis data (single ACID transaction) memaksa tim mengelola eventual consistency atau Saga Pattern, yang jauh lebih rawan bug logika dan menuntut distributed tracing untuk debugging.
+
+---
+
 ## Kesimpulan Kelompok
 
 [Ringkasan: jika FoodGo memperbaiki ketiga pitfall ini, apa arsitektur yang disarankan secara garis besar? Kaitkan dengan Tugas 2.]
