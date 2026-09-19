@@ -58,19 +58,20 @@ Server backend kadang crash total dan perlu di-restart manual.
 **1. Memberikan timeout pada pemanggilan antarservice:**
 Timeout memberikan batas waktu bagi modul pesanan untuk menunggu respons modul pembayaran. Kalau batas waktunya terlewati, modul pesanan berhenti menunggu dan melepaskan resource yang sudah tidak diperlukan. Pengguna diberi tahu bahwa hasil pembayaran belum diketahui. Sistem kemudian memeriksa hasilnya di latar belakang dengan identitas transaksi yang sama.
 
-**2. Menerapkan rate limiting per pengguna:**
-Rate limiting membatasi jumlah request yang dapat dikirim setiap pengguna dalam periode tertentu. Tujuannya membantu mengurangi risiko overload dan membatasi satu pengguna yang mengirim terlalu banyak permintaan. Pembatasan ini diterapkan pada permintaan pembuatan pesanan, sebelum server menjalankan pekerjaan yang lebih berat. Kalau batasnya terlampaui, permintaan tambahan ditolak sementara pengguna diberi tahu kapan bisa mencoba lagi.
-
-**3. Menambahkan retry terbatas dengan backoff:**
+**2. Menambahkan retry terbatas dengan backoff:**
 Retry digunakan untuk mencoba kembali permintaan yang mengalami gangguan sementara, seperti koneksi terputus atau layanan sementara tidak tersedia. Jumlah percobaan dan total waktu penanganannya dibatasi. Setiap percobaan tetap menggunakan timeout dan diberi jeda yang bisa diperpanjang agar layanan punya kesempatan pulih. Kalau batas percobaan sudah tercapai, sistem menghentikan retry.
+
+**3. Circuit breaker, untuk kegagalan yang berulang:**
+Mekanisme ini memantau kegagalan. Ketika ambang tertentu tercapai, panggilan ke layanan tersebut dihentikan sementara
 
 
 **Trade-off:** 
 * **Timeout terlalu singkat:** sistem berhenti menunggu sebelum respons diterima, padahal prosesnya masih berpotensi berhasil.
 * **Timeout terlalu panjang:** resource tertahan lebih lama sehingga permintaan lain bisa ikut menunggu.
-* **Rate limiting terlalu ketat:** request pengguna yang sah bisa ditolak karena aktivitas wajarnya melewati batas yang ditetapkan terlalu rendah.
 * **Pemeriksaan status setelah timeout:** sistem membutuhkan proses tambahan untuk memastikan hasil pembayaran. Pengecekan berkala menambah request, sedangkan penggunaan notifikasi perlu menangani kemungkinan notifikasi terlambat atau dikirim berulang.
 * **Retry menambah request dan waktu tunggu:** percobaan tambahan bisa membantu saat gangguan sementara, tetapi juga dapat memperparah beban kalau layanan sudah kewalahan.
+* **Retry menambah beban :** percobaan tambahan dapat memperberat layanan.
+* **circuit breaker memperlambat layanan yang sudah pulih terlambat digunakan kembali:** Circuit breaker berisiko menolak request terlalu cepat atau tetap membatasi akses saat layanan sudah pulih. Pengaturan ambangnya juga menambah kerumitan.
 
 ---
 
