@@ -159,7 +159,6 @@ Kembalinya Fallacies Jaringan: Komunikasi antar modul yang awalnya in-memory ber
 Integritas Data & Kompleksitas: Hilangnya transaksi atomik basis data (single ACID transaction) memaksa tim mengelola eventual consistency atau Saga Pattern, yang jauh lebih rawan bug logika dan menuntut distributed tracing untuk debugging. |
 
 
-| Tanggal | Tool AI | Prompt yang diberikan | Ringkasan saran/ide AI | Bagaimana diolah jadi tulisan/kode sendiri |
 |19 -09-2026 |Chat gpt|Aku sedang mengerjakan tugas analisis pitfall sistem terdistribusi dengan aturan AI Level 2. AI boleh membantu brainstorming dan menyusun kerangka berpikir, tetapi analisis akhir harus kutulis sendiri.
 Bagian skenario yang menjadi tanggung jawabku:
 di studi kasus foodGo aplikasi pesan-antar makanan) mengalami kegagalan sistem saat pesanan melonjak (misalnya jam makan siang atau saat promo besar).  
