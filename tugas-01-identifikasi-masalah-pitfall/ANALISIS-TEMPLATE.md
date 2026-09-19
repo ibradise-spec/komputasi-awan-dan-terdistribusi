@@ -8,23 +8,38 @@
 | Julio Chrysanto Tanlain | 103072400110 | 3 |
 | Ibrahimovich Paradise | 103072400122 | 4 |
 
-## Pitfall 1: [nama pitfall] — ditulis oleh [nama]
+## Pitfall 1: menganggap latency jaringan selalu rendah atau Latency is zero — ditulis oleh Misael Arafian Fonataba
 
-**Bukti di skenario:** [kutip/paraphrase bagian skenario]
+**Bukti di skenario:** Aplikasi jadi sangat lambat, beberapa permintaan timeout.
 
-**Kenapa ini keliru:** [penjelasan]
+**Kenapa ini keliru:** 
+FoodGo menganggap ketika suatu server mengirim permintaan ke server atau service lainnya, respon nya akan datang dengan cepat. Padahal di dalam sistem distribusi komunikasi antar server pasti membutuhkan waktu untuk melewati berbagai perangkat jaringan  apalagi disaat server lagi sibuk. Latency tidak mungkin 0 sekecil apapun itu, jadi tidak bisa menganggap komunikasi akan terjadi secara instan.
 
-**Dampak ke FoodGo:** [mekanisme kegagalan konkret]
+**Dampak ke FoodGo:** 
+Contoh saat promo besar, jumlah request akan meningkat sehingga waktu respons service seperti pemesanan dan pembayaran jadi lebih lama. Jika backend nya menunggu respons terlalu lama, banyak request lain nya akan tertahan dan akan membuat aplikasi jadi lambat, request nya akan mengalami timeout dan akan membuat pelanggan yang sedang checkout bingung atau yang paling parah bisa crash.  
+
+**Solusi desain awal:** 
+-Menggunakan message queue/asynchronous processing untuk proses yang tidak harus selesai secara langsung.
+-Circuit breaker bisa dipakai saat service tertentu terlalu lambat/gagal berkali-kali, request nya akan dihentikan sementara agar tidak membebani service lainnya.
+
+**Trade-off:** 
+-Message queue akan membuat lebih tahan terhadap lonjakan traffic tapi akan menambah kompleksitas sistem dan mungkin bisa menyebabkan delay
+-Circuit breaker bisa mencegah service yang bermasalah membebani sistem, tapi fitur yang bergantung pada server tersebut bisa sementara tidak dapat digunakan.
+
+---
+
+## Pitfall 2:  — ditulis oleh Misael Arafian Fonataba
+
+**Bukti di skenario:** 
+Server backend kadang crash total dan perlu di-restart manual.
+
+**Kenapa ini keliru:** 
+
+**Dampak ke FoodGo:** 
 
 **Solusi desain awal:** [usulan solusi]
 
 **Trade-off:** [apa yang dikorbankan/risiko dari solusi ini]
-
----
-
-## Pitfall 2: [nama pitfall] — ditulis oleh [nama]
-
-(ulangi struktur di atas)
 
 ---
 
