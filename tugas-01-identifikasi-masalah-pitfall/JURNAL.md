@@ -19,12 +19,8 @@
 
 | Tanggal | Tool AI | Prompt yang diberikan | Ringkasan saran/ide AI | Bagaimana diolah jadi tulisan/kode sendiri |
 | --- | --- | --- | --- | --- |
-| 19 - 09 - 2026 | Claude | Fallacies of Distributed Computing (referensi: "the network is reliable", "latency is zero", "bandwidth is infinite", "the network is secure", "topology doesn't change", "there is one administrator", "transport cost is zero", "the network is homogeneous") DAN/ATAU masalah desain sistem terdistribusi lain yang relevan (mis. single point of failure karena arsitektur monolitik). Jelaskan ke aku apa saja yang ada di fallacies of distributed computing| Oke bro, ini 8 fallacies of distributed computing (awalnya dirumuskan Peter Deutsch di Sun Microsystems, terus ditambah item ke-8 sama James Gosling). Ini asumsi-asumsi salah yang sering diam-diam dipercaya developer waktu bikin sistem terdistribusi, padahal kenyataannya nggak gitu.
-
-1. The network is reliable
-Asumsi jaringan selalu nyambung sempurna. Kenyataannya: paket bisa hilang, koneksi bisa putus kapan aja. Makanya perlu retry logic, timeout, circuit breaker.
-
-2. Latency is zero
+| 19 - 09 - 2026 | Claude | Fallacies of Distributed Computing (referensi: "the network is reliable", "latency is zero", "bandwidth is infinite", "the network is secure", "topology doesn't change", "there is one administrator", "transport cost is zero", "the network is homogeneous") DAN/ATAU masalah desain sistem terdistribusi lain yang relevan (mis. single point of failure karena arsitektur monolitik). Jelaskan ke aku apa saja yang ada di fallacies of distributed computing| Oke bro, ini 8 fallacies of distributed computing (awalnya dirumuskan Peter Deutsch di Sun Microsystems, terus ditambah item ke-8 sama James Gosling). Ini asumsi-asumsi salah yang sering diam-diam dipercaya developer waktu bikin sistem terdistribusi, padahal kenyataannya nggak gitu <br>1. The network is reliable
+Asumsi jaringan selalu nyambung sempurna. Kenyataannya: paket bisa hilang, koneksi bisa putus kapan aja. Makanya perlu retry logic, timeout, circuit breaker. <br>2. Latency is zero
 Ngirim data antar node dianggep instan. Padahal ada delay fisik (jarak, routing, processing). Kalau lo desain sistem kayak semua call itu local function call, bakal collapse pas skala gede.
 
 3. Bandwidth is infinite
