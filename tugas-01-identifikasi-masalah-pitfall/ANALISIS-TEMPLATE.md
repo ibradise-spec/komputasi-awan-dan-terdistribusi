@@ -43,7 +43,7 @@ Server backend kadang crash total dan perlu di-restart manual.
 
 ---
 
-## Pitfall 3: Asumsi “The Network Is Reliable” dan Tidak Adanya Timeout — ditulis oleh Julio Chrysanto Tanlain
+## Pitfall 3: Asumsi “The Network Is Reliable” dan Masalah desain: tidak adanya batas waktu pemanggilan — ditulis oleh Julio Chrysanto Tanlain
 
 **Bukti di skenario:** Tim menemukan asumsi dalam kode berupa `# network is always reliable`, no need for retry. Selain itu, tidak ada timeout pada pemanggilan antarservice, sehingga modul pesanan menunggu respons modul pembayaran tanpa batas waktu.
 
