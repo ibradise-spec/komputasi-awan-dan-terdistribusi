@@ -28,18 +28,22 @@ Contoh saat promo besar, jumlah request akan meningkat sehingga waktu respons se
 
 ---
 
-## Pitfall 2:  — ditulis oleh Misael Arafian Fonataba
+## Pitfall 2: Ketergantungan pada restart manual — ditulis oleh Misael Arafian Fonataba
 
 **Bukti di skenario:** 
 Server backend kadang crash total dan perlu di-restart manual.
 
-**Kenapa ini keliru:** 
+**Kenapa ini keliru:**
+Kegagalan server bisa terjadi kapan saja, sehingga sistem perlu memiliki mekanisme pemulihan. Jika hanya mengandalkan restart manual, layanan harus menunggu tim engineering turun tangan sebelum bisa berjalan kembali.
 
 **Dampak ke FoodGo:** 
+Pengguna tidak bisa membuat pesanan atau melanjutkan pembayaran selama backend berhenti. Gangguan bisa berlangsung lebih lama jika tim engineering terlambat mengetahui atau menangani crash.
 
-**Solusi desain awal:** [usulan solusi]
+**Solusi desain awal:** 
+Menambahkan pemantauan kondisi backend dan mekanisme restart otomatis saat proses backend berhenti. Log error juga perlu dicatat agar tim engineering bisa mencari dan memperbaiki penyebab crash.
 
-**Trade-off:** [apa yang dikorbankan/risiko dari solusi ini]
+**Trade-off:** 
+Mekanisme ini membutuhkan konfigurasi dan pemantauan tambahan. Jika penyebab crash belum diperbaiki, backend bisa terus mengalami siklus mati dan restart berulang.
 
 ---
 
