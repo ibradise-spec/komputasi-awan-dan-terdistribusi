@@ -1,65 +1,107 @@
-# Tugas 1 (Pekan 1) — Identifikasi Masalah & Pitfall Sistem Terdistribusi
+# Tugas 1 — Analisis Pitfall FoodGo
 
-**Materi terkait:** Definisi sistem terdistribusi, tujuan desain (transparansi, skalabilitas, keterbukaan), *Fallacies of Distributed Computing* (pitfall klasik).
+**Kelompok:** JIM
 
-## Studi Kasus: FoodGo
-
-Startup **FoodGo** (aplikasi pesan-antar makanan) mengalami kegagalan sistem saat pesanan melonjak (misalnya jam makan siang atau saat promo besar). Gejala yang dilaporkan tim engineering FoodGo:
-
-- Aplikasi jadi sangat lambat, beberapa permintaan *timeout*.
-- Server backend kadang *crash* total dan perlu di-restart manual.
-- Tim menemukan bahwa kode mereka menulis asumsi seperti `# network is always reliable, no need for retry` dan tidak ada *timeout* sama sekali pada pemanggilan antar service (modul pesanan memanggil modul pembayaran dan menunggu tanpa batas waktu).
-- Saat trafik naik, satu server yang menangani semua modul (pesanan, pembayaran, notifikasi kurir) kewalahan karena semuanya berjalan di satu proses monolitik yang sama.
-
-Ini merupakan gejala klasik dari **kesalahan asumsi tentang jaringan dan skala** yang terkenal di literatur sebagai *Fallacies of Distributed Computing* (Peter Deutsch et al.), ditambah masalah desain terkait skalabilitas.
-
-## Tujuan Pembelajaran
-
-Setelah tugas ini, kelompok harus mampu:
-1. Mengidentifikasi asumsi keliru spesifik (bukan generik) yang menyebabkan kegagalan sistem terdistribusi.
-2. Mengaitkan tiap pitfall dengan **gejala konkret** di skenario (bukan sekadar mengutip definisi buku).
-3. Mengusulkan solusi desain awal yang realistis, dengan trade-off yang disadari (bukan solusi "pasang cloud lebih besar" tanpa analisis).
-
-## Tugas Kelompok
-
-1. **Identifikasi minimal 3 pitfall utama** yang dialami FoodGo dari daftar *Fallacies of Distributed Computing* (referensi: "the network is reliable", "latency is zero", "bandwidth is infinite", "the network is secure", "topology doesn't change", "there is one administrator", "transport cost is zero", "the network is homogeneous") **DAN/ATAU** masalah desain sistem terdistribusi lain yang relevan (mis. *single point of failure* karena arsitektur monolitik).
-2. Untuk **tiap pitfall**, tulis:
-   - Kutipan/paraphrase bagian skenario yang menunjukkan pitfall ini terjadi.
-   - Penjelasan **kenapa** asumsi ini keliru dalam sistem terdistribusi nyata.
-   - Dampak konkret ke FoodGo (mis. "karena tidak ada timeout, satu service pembayaran yang lambat membuat seluruh thread modul pesanan tertahan, akhirnya server kehabisan resource").
-3. Usulkan **solusi desain awal** (tingkat konsep, bukan kode) untuk tiap pitfall — misalnya: timeout + retry dengan backoff untuk asumsi jaringan reliabel, circuit breaker, pemisahan modul jadi service terpisah, dsb.
-4. Diskusikan **satu trade-off** dari solusi yang diusulkan (solusi tidak gratis — misalnya retry bisa memperparah beban saat *cascading failure*).
-
-## Langkah Kerja yang Disarankan
-
-1. Kelompok diskusi tatap muka/panggilan (bukan hanya chat teks) untuk membedah skenario bersama — dokumentasikan poin diskusi di `JURNAL.md`.
-2. Tiap anggota mengambil 1 pitfall sebagai tanggung jawab utama (tulis analisisnya sendiri di `README.md`, dengan nama di bagian yang ditulis).
-3. Gabungkan hasil, diskusikan solusi desain bersama sebagai kelompok.
-4. Review silang: tiap anggota membaca dan mengomentari analisis rekan sebelum submit (catat di `JURNAL.md`).
-
-## Struktur Submission
-
-```
-tugas-01-identifikasi-masalah-pitfall/
-├── README.md      # Isi dengan template ANALISIS-TEMPLATE.md di bawah
-├── JURNAL.md       # Log diskusi & proses berpikir kelompok
-└── bukti/          # (opsional untuk tugas ini) screenshot diskusi/whiteboard
-```
-
-Gunakan [`ANALISIS-TEMPLATE.md`](ANALISIS-TEMPLATE.md) sebagai kerangka — salin isinya ke `README.md` kelompok kalian lalu isi bagian `[...]`.
-
-## Rubrik Penilaian (Tugas 1)
-
-| Komponen | Bobot | Kriteria |
+| Nama | NIM | Kontribusi |
 |---|---|---|
-| Ketepatan identifikasi pitfall | 25% | Pitfall yang dipilih benar-benar tercermin di skenario, bukan asal tempel definisi |
-| Kedalaman analisis dampak | 30% | Menjelaskan mekanisme kegagalan (kenapa & bagaimana), bukan cuma "ini menyebabkan lambat" |
-| Kualitas solusi & trade-off | 25% | Solusi realistis untuk tim kecil (bukan solusi enterprise berlebihan), trade-off disadari |
-| Proses & kontribusi kelompok | 20% | `JURNAL.md` menunjukkan diskusi asli, tiap anggota terlihat kontribusinya |
+| Misael Arafian Fonataba | 103072400017 | 1, 2 |
+| Julio Chrysanto Tanlain | 103072400110 | 3 |
+| Ibrahimovich Paradise | 103072400122 | 4 |
 
-## Batasan Penggunaan AI (Level 2)
+## Pitfall 1: menganggap latency jaringan selalu rendah atau Latency is zero — ditulis oleh Misael Arafian Fonataba
 
-Tugas ini memakai kebijakan **Level 2 (AI Assisted Idea Generation & Structuring)** — lihat [`../RUBRIK-UMUM.md`](../RUBRIK-UMUM.md) untuk aturan lengkap. Boleh memakai AI untuk brainstorming pitfall apa saja yang mungkin relevan atau menyusun outline analisis; **tidak boleh** meminta AI menuliskan analisis akhirnya (kaitan ke skenario, penjelasan dampak, usulan solusi) yang tinggal ditempel ke `README.md`. Catat setiap sesi pemakaian AI di bagian "Log Penggunaan AI" pada `JURNAL.md`.
+**Bukti di skenario:** Aplikasi jadi sangat lambat, beberapa permintaan timeout.
 
-Karena tugas ini murni analisis (rawan sekadar salin-tempel dari AI), verifikasi tambahan yang berlaku:
-- Setiap pitfall harus dikaitkan dengan **kalimat spesifik** dari skenario di atas — jawaban generik yang bisa dipakai untuk skenario apa saja akan dinilai rendah pada komponen kedalaman analisis.
+**Kenapa ini keliru:** 
+FoodGo menganggap ketika suatu server mengirim permintaan ke server atau service lainnya, respon nya akan datang dengan cepat. Padahal di dalam sistem distribusi komunikasi antar server pasti membutuhkan waktu untuk melewati berbagai perangkat jaringan  apalagi disaat server lagi sibuk. Latency tidak mungkin 0 sekecil apapun itu, jadi tidak bisa menganggap komunikasi akan terjadi secara instan.
+
+**Dampak ke FoodGo:** 
+Contoh saat promo besar, jumlah request akan meningkat sehingga waktu respons service seperti pemesanan dan pembayaran jadi lebih lama. Jika backend nya menunggu respons terlalu lama, banyak request lain nya akan tertahan dan akan membuat aplikasi jadi lambat, request nya akan mengalami timeout dan akan membuat pelanggan yang sedang checkout bingung atau yang paling parah bisa crash.  
+
+**Solusi desain awal:** 
+-Menggunakan message queue/asynchronous processing untuk proses yang tidak harus selesai secara langsung.
+-Circuit breaker bisa dipakai saat service tertentu terlalu lambat/gagal berkali-kali, request nya akan dihentikan sementara agar tidak membebani service lainnya.
+
+**Trade-off:** 
+-Message queue akan membuat lebih tahan terhadap lonjakan traffic tapi akan menambah kompleksitas sistem dan mungkin bisa menyebabkan delay
+-Circuit breaker bisa mencegah service yang bermasalah membebani sistem, tapi fitur yang bergantung pada server tersebut bisa sementara tidak dapat digunakan.
+
+---
+
+## Pitfall 2: Ketergantungan pada restart manual yaitu Single Point of Failure (SPoF) — ditulis oleh Misael Arafian Fonataba
+
+**Bukti di skenario:** 
+Server backend kadang crash total dan perlu di-restart manual.
+
+**Kenapa ini keliru:**
+Kegagalan server bisa terjadi kapan saja, sehingga sistem perlu memiliki mekanisme pemulihan. Jika hanya mengandalkan restart manual, layanan harus menunggu tim engineering turun tangan sebelum bisa berjalan kembali. Dan ketika bergantung pada satu server, saat server tersebut gagal tidak ada server lain yang bisa ambil ahli dan membuat crash total.
+
+**Dampak ke FoodGo:** 
+Pengguna tidak bisa membuat pesanan atau melanjutkan pembayaran selama backend berhenti. Gangguan bisa berlangsung lebih lama jika tim engineering terlambat mengetahui atau menangani crash.
+
+**Solusi desain awal:** 
+Menambahkan pemantauan kondisi backend dan mekanisme restart otomatis saat proses backend berhenti. Log error juga perlu dicatat agar tim engineering bisa mencari dan memperbaiki penyebab crash. Bisa juga menambahkan server sehingga bisa mengurangi dampak dari SPOF ini.
+
+**Trade-off:** 
+Jika menggunakan restart otomatis kelebihan nya tidak perlu restart manual dan downtime server nya bisa lebih singkat juga perkerjaan administrator bisa berkurang. Tapi mekanisme ini membutuhkan konfigurasi dan pemantauan tambahan. Jika penyebab crash belum diperbaiki, backend bisa terus mengalami crash/siklus mati dan restart berulang kali. Data atau proses yang sedang berjalan juga bisa hilang.
+
+---
+
+## Pitfall 3: Asumsi “The Network Is Reliable” dan Masalah desain: tidak adanya batas waktu pemanggilan — ditulis oleh Julio Chrysanto Tanlain
+
+**Bukti di skenario:** Tim menemukan asumsi dalam kode berupa `# network is always reliable`, no need for retry. Selain itu, tidak ada timeout pada pemanggilan antarservice, sehingga modul pesanan menunggu respons modul pembayaran tanpa batas waktu.
+
+**Kenapa ini keliru:** Asumsi “network is always reliable” keliru karena mengabaikan kemungkinan koneksi terputus, respons terlambat, atau respons tidak diterima. Anggapan “no need for retry” juga mengabaikan kemungkinan bahwa permintaan yang terganggu sementara dapat berhasil jika dicoba kembali setelah gangguan pulih, meskipun retry perlu dibatasi dan hanya dilakukan jika aman. Selain itu, tidak adanya timeout membuat modul pesanan bergantung pada respons modul pembayaran yang belum tentu datang. Akibatnya, modul pesanan bisa terus menunggu dan menahan resource yang dibutuhkan untuk menangani pesanan lain.
+
+**Dampak ke FoodGo:** Request yang terus menunggu dapat menahan koneksi, memori, atau slot worker. Saat pesanan melonjak, kapasitas untuk melayani request baru berkurang, antrean bertambah, dan aplikasi melambat atau gagal melayani pengguna. Gangguan pada pembayaran akhirnya bisa ikut menghambat layanan pesanan. Status pesanan juga dapat tetap menunggu meskipun pembayaran sudah berhasil, apabila respons konfirmasinya belum diterima.
+
+**Solusi desain awal:** 
+**1. Memberikan timeout pada pemanggilan antarservice:**
+Timeout memberikan batas waktu bagi modul pesanan untuk menunggu respons modul pembayaran. Kalau batas waktunya terlewati, modul pesanan berhenti menunggu dan melepaskan resource yang sudah tidak diperlukan. Pengguna diberi tahu bahwa hasil pembayaran belum diketahui. Sistem kemudian memeriksa hasilnya di latar belakang dengan identitas transaksi yang sama.
+
+**2. Menambahkan retry terbatas dengan backoff:**
+Retry digunakan untuk mencoba kembali permintaan yang mengalami gangguan sementara, seperti koneksi terputus atau layanan sementara tidak tersedia. Jumlah percobaan dan total waktu penanganannya dibatasi. Setiap percobaan tetap menggunakan timeout dan diberi jeda yang bisa diperpanjang agar layanan punya kesempatan pulih. Kalau batas percobaan sudah tercapai, sistem menghentikan retry.
+
+**3. Circuit breaker, untuk kegagalan yang berulang:**
+Mekanisme ini memantau kegagalan. Ketika ambang tertentu tercapai, panggilan ke layanan tersebut dihentikan sementara
+
+**Trade-off:** 
+* **Timeout terlalu singkat:** sistem berhenti menunggu sebelum respons diterima, padahal prosesnya masih berpotensi berhasil.
+* **Timeout terlalu panjang:** resource tertahan lebih lama sehingga permintaan lain bisa ikut menunggu.
+* **Retry menambah request dan waktu tunggu:** percobaan tambahan bisa membantu saat gangguan sementara, tetapi juga dapat memperparah beban kalau layanan sudah kewalahan.
+* **circuit breaker memperlambat layanan yang sudah pulih terlambat digunakan kembali:** Circuit breaker berisiko menolak request terlalu cepat atau tetap membatasi akses saat layanan sudah pulih. Pengaturan ambangnya juga menambah kerumitan.
+
+---
+
+## Pitfall 4: Single Point of Failure (SPoF) & Ketiadaan Isolasi Sumber Daya (Bulkhead) pada Monolitik — ditulis oleh Ibrahimovich Paradise
+
+**Bukti di skenario:**  
+Saat trafik naik, satu server yang menangani semua modul (pesanan, pembayaran, notifikasi kurir) kewalahan karena semuanya berjalan di satu proses monolitik yang sama yang berujung pada Server backend kadang crash total dan perlu di-restart manual.
+
+**Kenapa ini keliru:**  
+Desain arsitektur FoodGo menyatukan seluruh domain bisnis ke dalam satu proses tunggal (shared runtime) tanpa isolasi sumber daya (failure domain isolation atau bulkhead pattern). Mengasumsikan satu proses server dapat menyerap beban heterogen secara seragam adalah kekeliruan. Modul pesanan yang butuh latensi rendah harus berbagi CPU, thread pool, dan memory dengan modul pembayaran dan notifikasi yang bergantung pada I/O jaringan eksternal.
+
+**Dampak ke FoodGo:**  
+Ketika modul pembayaran atau notifikasi mengalami keterlambatan eksternal, thread eksekusi tertahan (thread starvation). Karena pool thread digunakan bersama, modul pesanan yang kodenya sehat tidak lagi mendapat jatah komputasi. Antrean request yang menumpuk tak terkelola memicu lonjakan memori hingga OS melakukan terminasi paksa (Out-Of-Memory kill). Ketiadaan redundansi (Single Point of Failure) dan mekanisme self-healing/health-check membuat satu kegagalan modul melumpuhkan seluruh platform FoodGo secara total dan menuntut restart manual.
+
+**Solusi desain awal:**  
+1. **Penerapan Redundansi Horizontal (Short-term):** Menjalankan beberapa instance backend monolitik secara bersamaan di balik Load Balancer + horizontal scaling untuk mengeliminasi SPoF.
+2. **Asynchronous Decoupling via Message Queue:** Mengisolasi modul notifikasi dan proses downstream pembayaran ke antrean pesan (event-driven worker), sehingga modul pesanan tidak menunggu proses I/O selesai.
+3. **Pemisahan Modul Bertahap (*Modular Monolith to Microservices*):** Memisahkan modul pembayaran dan notifikasi menjadi service terpisah dengan alokasi resource komputasi mandiri.
+
+**Trade-off:**  
+Pemisahan arsitektur dan desentralisasi proses membawa biaya operasional (operational overhead) yang signifikan:
+- **Kembalinya Fallacies Jaringan:** Komunikasi antar modul yang awalnya in-memory berubah menjadi network calls, yang menimbulkan latensi tambahan dan overhead serialisasi (transport cost).
+- **Integritas Data & Kompleksitas:** Hilangnya transaksi atomik basis data (single ACID transaction) memaksa tim mengelola eventual consistency atau Saga Pattern, yang jauh lebih rawan bug logika dan menuntut distributed tracing untuk debugging.
+
+---
+
+## Kesimpulan Kelompok
+
+Permasalahan utama pada sistem FoodGo berasal dari kombinasi asumsi atau pitfall jaringan yang kurang tepat, seperti The Network is Reliable dan Latency is Zero, serta penggunaan arsitektur monolitik terpusat yang belum memiliki mekanisme isolasi kegagalan. Kondisi tersebut menyebabkan adanya Single Point of Failure dan tidak adanya mekanisme Bulkhead untuk membatasi dampak kegagalan. Ketika terjadi peningkatan beban, misalnya saat promo atau jam makan siang, proses yang menumpuk pada salah satu modul dapat menghabiskan sumber daya dan menyebabkan kegagalan yang merambat ke bagian sistem lainnya atau cascading failure hingga berujung pada crash secara keseluruhan.
+
+Untuk mengatasi permasalahan tersebut secara berkelanjutan, FoodGo disarankan menerapkan arsitektur hibrida dengan mengombinasikan Service-Oriented Architecture (SOA) atau Microservices yang di padukan dengan Publish-Subscribe (Pub-Sub) berbasis Event-Driven Architecture. Melalui SOA/Microservices, sistem monolitik dapat dipecah menjadi beberapa layanan yang lebih mandiri, seperti Order Service, Payment Service, Courier/Notification Service, dan Resto Catalog Service. Setiap layanan dapat memiliki proses dan alokasi sumber daya secara terpisah sehingga kegagalan pada satu layanan tidak secara langsung menyebabkan seluruh sistem berhenti. Selain itu, komunikasi sinkron yang bersifat transaksional dapat dilengkapi dengan timeout, retry dengan exponential backoff, dan circuit breaker untuk meningkatkan ketahanan sistem.
+
+Sementara itu, proses yang membutuhkan waktu lebih lama dan memiliki aktivitas I/O yang tinggi, seperti broadcasting pesanan ke restoran dan pengiriman notifikasi kepada kurir, dapat dialihkan dari komunikasi sinkron menjadi komunikasi asinkron menggunakan Message Broker. Sebagai contoh, setelah pembayaran berhasil, Order Service cukup mempublikasikan event OrderPaid, kemudian layanan restoran dan kurir dapat menerima serta memproses event tersebut secara independen. Pendekatan ini mengurangi ketergantungan antarproses dan mencegah antrean pada satu layanan membebani proses utama.
+
+Dengan demikian, kombinasi SOA/Microservices dan Publish-Subscribe dapat menjadi dasar perancangan arsitektur FoodGo pada Tugas 2. Pemisahan layanan dan penggunaan komunikasi berbasis event memungkinkan terciptanya loose coupling serta failure containment. Setiap layanan dapat dikembangkan, diperbarui, atau dijalankan ulang secara lebih independen tanpa harus menghentikan keseluruhan sistem, sehingga risiko downtime dan dampak cascading failure terhadap pengguna dapat dikurangi.
