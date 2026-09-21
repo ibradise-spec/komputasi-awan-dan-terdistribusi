@@ -28,22 +28,22 @@ Contoh saat promo besar, jumlah request akan meningkat sehingga waktu respons se
 
 ---
 
-## Pitfall 2: Ketergantungan pada restart manual — ditulis oleh Misael Arafian Fonataba
+## Pitfall 2: Ketergantungan pada restart manual yaitu Single Point of Failure (SPoF) — ditulis oleh Misael Arafian Fonataba
 
 **Bukti di skenario:** 
 Server backend kadang crash total dan perlu di-restart manual.
 
 **Kenapa ini keliru:**
-Kegagalan server bisa terjadi kapan saja, sehingga sistem perlu memiliki mekanisme pemulihan. Jika hanya mengandalkan restart manual, layanan harus menunggu tim engineering turun tangan sebelum bisa berjalan kembali.
+Kegagalan server bisa terjadi kapan saja, sehingga sistem perlu memiliki mekanisme pemulihan. Jika hanya mengandalkan restart manual, layanan harus menunggu tim engineering turun tangan sebelum bisa berjalan kembali. Dan ketika bergantung pada satu server, saat server tersebut gagal tidak ada server lain yang bisa ambil ahli dan membuat crash total.
 
 **Dampak ke FoodGo:** 
 Pengguna tidak bisa membuat pesanan atau melanjutkan pembayaran selama backend berhenti. Gangguan bisa berlangsung lebih lama jika tim engineering terlambat mengetahui atau menangani crash.
 
 **Solusi desain awal:** 
-Menambahkan pemantauan kondisi backend dan mekanisme restart otomatis saat proses backend berhenti. Log error juga perlu dicatat agar tim engineering bisa mencari dan memperbaiki penyebab crash.
+Menambahkan pemantauan kondisi backend dan mekanisme restart otomatis saat proses backend berhenti. Log error juga perlu dicatat agar tim engineering bisa mencari dan memperbaiki penyebab crash. Bisa juga menambahkan server sehingga bisa mengurangi dampak dari SPOF ini.
 
 **Trade-off:** 
-Mekanisme ini membutuhkan konfigurasi dan pemantauan tambahan. Jika penyebab crash belum diperbaiki, backend bisa terus mengalami siklus mati dan restart berulang.
+Jika menggunakan restart otomatis kelebihan nya tidak perlu restart manual dan downtime server nya bisa lebih singkat juga perkerjaan administrator bisa berkurang. Tapi mekanisme ini membutuhkan konfigurasi dan pemantauan tambahan. Jika penyebab crash belum diperbaiki, backend bisa terus mengalami crash/siklus mati dan restart berulang kali. Data atau proses yang sedang berjalan juga bisa hilang.
 
 ---
 
