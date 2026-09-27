@@ -524,3 +524,52 @@ Satu catatan kecil saja: label **“SOA Core Services (Synchronous / Request-Res
 Setelah pelanggan memilih menu dan membuat pesanan, request diteruskan oleh Gateway ke Modul Pesanan (Order Service). Modul Pesanan kemudian berkomunikasi dengan Modul Pembayaran (Payment Service) untuk memproses atau memverifikasi pembayaran secara sinkron dengan pola request-response.
 
 Setelah pembayaran berhasil, Payment Service mengirimkan event OrderPaid ke Message Broker seperti RabbitMQ atau Kafka secara asynchronous. Broker kemudian meneruskan event tersebut kepada subscriber, yaitu Modul Notifikasi Resto dan Modul Notifikasi & Penugasan Kurir. Kedua modul tersebut memproses event secara asynchronous untuk memberikan notifikasi kepada restoran dan melakukan proses penugasan atau notifikasi kurir.|
+
+
+| 27/9/2026 | GPT | tolong jelaskan arsitektur SOA + Pub-Sub. kalau di pke aplikasi seperti gofood yg pke decoupled biar kurir sama resto nya tdk saling menggangu ketika salah satu modul di perbarui ulang. semua modul : pesanan, pembayaran, notif kurir dan katalog resto nya satu aplikasi monolitik yg beresiko down total. apakah ada masalah yang bisa muncul kalau dipke seperti itu? | Arsitektur SOA + Pub-Sub pada kasus GoFood
+SOA (Service-Oriented Architecture):
+Aplikasi monolitik dipecah menjadi beberapa service berdasarkan fungsi.
+Contohnya:
+Order Service → mengatur pesanan.
+Payment Service → mengatur pembayaran.
+Restaurant/Catalog Service → mengatur menu dan restoran.
+Courier Service → mengatur kurir.
+Notification Service → mengirim notifikasi.
+Setiap service bisa diperbarui atau di-deploy tanpa harus menghentikan seluruh aplikasi.
+Kalau Payment Service sedang diperbarui, service kurir atau katalog tidak harus ikut berhenti.
+Ini mengurangi risiko cascading failure dan Single Point of Failure dari aplikasi monolitik.
+Peran Pub-Sub
+Service berkomunikasi menggunakan event melalui Message Broker.
+Contoh ketika pembayaran berhasil:
+Payment Service mengirim event → OrderPaid
+Event masuk ke Message Broker.
+Courier Service menerima event → memproses pengantaran.
+Notification Service menerima event → mengirim notifikasi.
+Payment Service tidak perlu menunggu Courier Service dan Notification Service selesai.
+Ini membuat komunikasi menjadi asynchronous dan antarservice lebih loosely coupled.
+Masalah yang masih bisa muncul
+Message Broker down
+Kalau broker bermasalah, event tidak bisa diteruskan ke service lain.
+Jadi broker juga perlu dibuat reliable/redundant.
+Event terlambat
+Pesanan sudah berhasil dibuat, tetapi event ke kurir mungkin baru diproses beberapa saat kemudian.
+Event gagal atau hilang
+Service tertentu bisa tidak menerima event sehingga perlu mekanisme retry dan dead-letter queue.
+Duplicate event
+Event yang sama bisa diterima lebih dari sekali.
+Service seperti kurir harus dibuat idempotent, sehingga pemrosesan ulang tidak menyebabkan efek ganda.
+Eventual consistency
+Data antarservice tidak selalu langsung sama.
+Contohnya pembayaran sudah berhasil, tetapi status di service kurir masih menunggu.
+Debugging lebih sulit
+Pada monolitik alurnya lebih mudah dilacak.
+Pada Pub-Sub, alurnya melewati beberapa service dan broker sehingga pencarian error lebih kompleks.
+Resource isolation tidak otomatis menyelesaikan semua masalah
+Memisahkan service memang mengurangi kemungkinan thread starvation antar modul.
+Tetapi masing-masing service tetap bisa mengalami kehabisan resource sendiri jika bebannya terlalu tinggi.
+
+Intinya: SOA + Pub-Sub bisa membuat sistem GoFood lebih terpisah, fleksibel, dan tahan terhadap gangguan pada satu service, tetapi konsekuensinya sistem menjadi lebih kompleks dan harus menangani masalah seperti event terlambat, duplicate event, message failure, eventual consistency, dan debugging. | Arsitektur SOA dan Publish-subscribe dapat mengatasi masalah coupling pada foodgo karena setiap fungsi utama dipisahkan menjadi service yang memiliki tanggung jawab masing-masing. Modul pesanan, pembayaran, katalog resto, serta kurir/notifikasi tidak lagi bergantung pada satu aplikasi monolitik. Dengan pemisahan tersebut, perubahan atau deployment pada satu service tidak harus menyebabkan seluruh sistem ikut dihentikan atau direstart. Hal ini juga membantu mengurangi dampak Single Point of Failure dan cascading failure, karena gangguan pada satu service tidak secara langsung menghentikan service lainnya. Contoh nya saat proses lain tidak kebagian giliran eksekusi karena resource nya habis dipakai proses lain(thread starvation) akibat modul pembayaran lambat tidak terjadi lagi karena tiap service sudah punya resource sendiri.
+
+Penggunaan Pub-Sub semakin mengurangi ketergantungan antar service, terutama untuk proses yang tidak harus mendapatkan respons secara langsung. Contohnya, setelah pembayaran berhasil payment service cukup mengirimkan event OrderPaid ke message Broker. Modul notifikasi resto dan modul kurir kemudian dapat menerima dan memproses event tersebut secara independen. Dengan demikian modul payment service tidak perlu menunggu kedua modul tersebut selesai bekerja. Hal ini membuat sistem lebih loosely coupled atau ketergantungan antar service lebih rendah dan memungkinkan proses berjalan secara asynchronous.
+
+Namun, penggunaan SOA dan Pub-Sub juga memiliki beberapa trade off yaitu sistem menjadi lebih kompleks karena membutuhkan beberapa service, message broker, serta mekanisme tambahan untuk memantau komunikasi antar service. Selain itu debugging menjadi lebih sulit karena alur asynchronous tidak selalu berjalan secara linear atau berurutan seperti aplikasi monolitik. Pesan juga dapat mengalami keterlambatan atau kegagalan sehingga sistem perlu menangani retry, duplicate event, dan kemungkinan eventual consistency atau tidak langsung sama di semua service. Karena itu modul resto dan kurir perlu didesain idempotent yaitu mampu memproses event yang sama berkali-kali tanpa menghasilkan efek ganda. Dengan demikian meskipun SOA dan Pub-Sub dapat meningkatkan fleksibilitas dan isolasi kegagalan, penerapan nya membutuhkan pengelolaan sistem yang lebih kompleks dibandingkan arsitektur monolitik. |
