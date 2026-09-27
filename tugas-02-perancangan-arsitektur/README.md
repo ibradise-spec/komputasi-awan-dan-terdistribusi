@@ -1,57 +1,41 @@
-# Tugas 2 (Pekan 2) — Perancangan Arsitektur untuk FoodGo
+````markdown
+```mermaid
+graph LR
+    Client["Client App (Mobile/Web)"] -->|Sync HTTPS| GW["API Gateway (Reverse Proxy/Auth)"]
+    
+    subgraph SOA_Core ["SOA Core Services (Synchronous)"]
+        GW -->|Sync GET| RestoCatalog["Katalog Resto (SOA Service)"]
+        GW -->|Sync POST| OrderService["Modul Pesanan (Core SOA Service)"]
+        OrderService -->|Sync Call + Timeout| PaymentService["Modul Pembayaran (SOA + Event Pub)"]
+    end
+    
+    subgraph Event_Brokering ["Pub-Sub Messaging Layer (Asynchronous)"]
+        Broker[("Message Broker (RabbitMQ / Kafka)")]
+        RestoNotif["Modul Resto (Subscriber Notif)"]
+        CourierService["Kurir / Notifikasi (Subscriber Dispatch)"]
+    end
 
-**Materi terkait:** Architectural style (Layered, SOA, Peer-to-Peer, Publish-Subscribe).
-
-## Studi Kasus
-
-Melanjutkan Tugas 1: FoodGo butuh sistem yang **decoupled** agar tim kurir dan tim resto tidak saling mengganggu ketika salah satu modul diperbarui/deploy ulang. Saat ini semua modul (pesanan, pembayaran, notifikasi kurir, katalog resto) berjalan sebagai satu aplikasi monolitik — sekali deploy, semua modul ikut restart dan berisiko downtime total.
-
-## Tugas Kelompok
-
-1. Pilih **satu** gaya arsitektur utama: **Service-Oriented Architecture (SOA)** atau **Publish-Subscribe**. Boleh dikombinasikan (mis. SOA untuk service inti + Pub-Sub untuk notifikasi), tapi harus dijustifikasi kenapa kombinasi ini yang dipilih.
-2. Gambarkan minimal 4 komponen berikut dan interaksinya: modul Pesanan, modul Pembayaran, modul Kurir/Notifikasi, modul Katalog Resto (dan message broker/API gateway jika relevan).
-3. Jelaskan alur satu skenario penuh secara end-to-end di diagram (misalnya: pelanggan buat pesanan → bayar → resto terima notifikasi → kurir ditugaskan) — tunjukkan komponen mana berkomunikasi dengan siapa, dan **jenis komunikasinya** (sinkron/asinkron, request-response/event).
-4. Analisis tertulis: kenapa gaya ini mengatasi masalah *coupling* dari Tugas 1, dan apa trade-off-nya (mis. Pub-Sub menambah kompleksitas debugging karena alur tidak linear).
-
-## Cara Membuat Diagram (Gratis, Cukup Laptop)
-
-Tidak perlu software berbayar. Dua opsi:
-
-**Opsi A — Mermaid di dalam Markdown (disarankan).** Ditulis sebagai teks biasa di `README.md`, otomatis dirender jadi diagram oleh GitHub — tidak perlu install apa pun.
+    PaymentService -.->|Publish: OrderPaid| Broker
+    Broker -.->|Async Push| RestoNotif
+    Broker -.->|Async Push| CourierService
+```
+````
 
 ````markdown
 ```mermaid
 graph LR
-  Client[Pelanggan] -->|HTTP request pesan| OrderSvc[Service Pesanan]
-  OrderSvc -->|RPC sinkron| PaymentSvc[Service Pembayaran]
-  OrderSvc -->|publish event OrderCreated| Broker[(Message Broker)]
-  Broker -->|subscribe| NotifSvc[Service Notifikasi Kurir]
-  Broker -->|subscribe| RestoSvc[Service Katalog Resto]
-```
+    Client["Client App (Mobile/Web)"] -->|HTTPS Request| GW["API Gateway / Reverse Proxy"]
+
+    subgraph SOA_Core ["SOA Core Services (Synchronous / Request-Response)"]
+        GW -->|Query Menu| RestoCatalog["Modul Katalog Resto"]
+        GW -->|Buat Pesanan| OrderService["Modul Pesanan"]
+        OrderService -->|Verifikasi Pembayaran <br/> | PaymentService["Modul Pembayaran"]
+    end
+
+    subgraph Event_Brokering ["Pub-Sub Messaging Layer (Asynchronous / Decoupled)"]
+        PaymentService -->|Publish: OrderPaid Event| Broker["Message Broker <br/> (RabbitMQ / Kafka)"]
+        
+        Broker -->|Consume Event| RestoNotif["Modul Notifikasi Resto"]
+        Broker -->|Consume Event| CourierService["Modul Notifikasi & Penugasan Kurir"]
+    end
 ````
-
-**Opsi B — draw.io / diagrams.net** (gratis, jalan di browser tanpa akun, atau app desktop offline di [app.diagrams.net](https://app.diagrams.net/)). Ekspor sebagai `.png` dan simpan di folder `diagram/`.
-
-## Struktur Submission
-
-```
-tugas-02-perancangan-arsitektur/
-├── README.md          # Analisis + diagram Mermaid (jika Opsi A) atau referensi ke diagram/
-├── JURNAL.md
-└── diagram/            # File .png/.drawio jika pakai Opsi B
-```
-
-## Rubrik Penilaian (Tugas 2)
-
-| Komponen | Bobot | Kriteria |
-|---|---|---|
-| Ketepatan pemilihan gaya arsitektur | 20% | Justifikasi SOA/Pub-Sub sesuai kebutuhan *decoupling* di skenario |
-| Kelengkapan & kejelasan diagram | 30% | Semua komponen kunci ada, jenis komunikasi (sinkron/asinkron) jelas ditandai |
-| Analisis trade-off | 30% | Bukan hanya kelebihan — kekurangan/kompleksitas baru juga dibahas |
-| Proses & kontribusi kelompok | 20% | `JURNAL.md`, commit history |
-
-## Batasan Penggunaan AI (Level 2)
-
-Kebijakan **Level 2 (AI Assisted Idea Generation & Structuring)** berlaku — lihat [`../RUBRIK-UMUM.md`](../RUBRIK-UMUM.md). Boleh memakai AI untuk brainstorming komponen apa saja yang umum ada di gaya arsitektur SOA/Pub-Sub; **tidak boleh** meminta AI menggambar diagram final atau menuliskan analisis trade-off yang tinggal ditempel. Catat pemakaian AI di "Log Penggunaan AI" pada `JURNAL.md`.
-
-- Diagram Mermaid/draw.io yang "terlalu generik" (identik dengan contoh tutorial di internet tanpa penyesuaian ke kasus FoodGo) akan dinilai rendah pada komponen kelengkapan & kejelasan diagram.
