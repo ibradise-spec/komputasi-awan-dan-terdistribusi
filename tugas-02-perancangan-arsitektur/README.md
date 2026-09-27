@@ -1,5 +1,16 @@
 # Tugas 2 - Perancangan Arsitektur
+## 1. Pemilihan Gaya Arsitektur
 
+Pada sistem FoodGo, kami memilih **kombinasi Service-Oriented Architecture (SOA) dan Publish-Subscribe (Pub-Sub)**. SOA digunakan untuk memisahkan sistem menjadi beberapa service berdasarkan fungsi, seperti modul pesanan (Order Service), modul pembayaran (Payment Service), modul katalog restoran, serta modul kurir dan notifikasi. Sementara itu, Pub-Sub digunakan untuk komunikasi asynchronous pada proses yang tidak harus menunggu respons secara langsung.
+
+Pemilihan kombinasi ini didasarkan pada masalah pada sistem FoodGo sebelumnya yang masih berbentuk monolitik. Semua modul berjalan dalam satu aplikasi sehingga ketika salah satu bagian mengalami beban tinggi atau gangguan, bagian lain dapat ikut terdampak. Pada Tugas 1, masalah tersebut berkaitan dengan Single Point of Failure, tidak adanya isolasi sumber daya, serta kemungkinan terjadinya cascading failure.
+
+Dengan SOA, setiap modul dapat dikembangkan dan dijalankan secara lebih mandiri sehingga ketergantungan antar-modul dapat dikurangi. Kemudian, Pub-Sub digunakan untuk proses asynchronous, misalnya setelah pembayaran berhasil, event dapat dikirim melalui Message Broker dan diterima oleh modul notifikasi restoran serta modul kurir secara independen. Hal ini membuat komunikasi antar-service menjadi lebih loosely coupled.
+
+Kombinasi ini juga memiliki trade-off, yaitu sistem menjadi lebih kompleks karena membutuhkan beberapa service dan Message Broker. Selain itu, proses debugging menjadi lebih sulit karena alur asynchronous tidak selalu berjalan secara linear. Namun, pendekatan ini sesuai dengan permasalahan FoodGo karena dapat membantu mengurangi ketergantungan antar-modul dan membatasi dampak kegagalan satu bagian terhadap sistem secara keseluruhan.
+
+
+## 2. diagram
 ## Skenario 1: Diagram SOA + Pub-Sub
 
 ```mermaid
@@ -39,3 +50,10 @@ graph LR
     Broker -.->|Async Push| RestoNotif
     Broker -.->|Async Push| CourierService
 ```
+## 3. Alur Skenario
+
+Alur dimulai ketika pelanggan mengirim request melalui **Client App** ke **API Gateway** menggunakan HTTPS. Gateway kemudian meneruskan request ke **Modul Katalog Resto** untuk mengambil informasi menu secara **sinkron dengan pola request-response**, lalu hasilnya dikembalikan ke pelanggan.
+
+Setelah pelanggan memilih menu dan membuat pesanan, request diteruskan oleh Gateway ke **Modul Pesanan (Order Service)**. Modul Pesanan kemudian berkomunikasi dengan **Modul Pembayaran (Payment Service)** untuk memproses atau memverifikasi pembayaran secara **sinkron dengan pola request-response**.
+
+Setelah pembayaran berhasil, **Payment Service** mengirimkan **event `OrderPaid`** ke **Message Broker** seperti RabbitMQ atau Kafka secara **asynchronous**. Broker kemudian meneruskan event tersebut kepada subscriber, yaitu **Modul Notifikasi Resto** dan **Modul Notifikasi & Penugasan Kurir**. Kedua modul tersebut memproses event secara **asynchronous** untuk memberikan notifikasi kepada restoran dan melakukan proses penugasan atau notifikasi kurir.
