@@ -1,68 +1,13 @@
-# Tugas 3 (Pekan 3) — Efisiensi Proses & Kontainer
+analisis
 
-**Materi terkait:** Threading, Virtualization, Containers.
+DI program FoodGo setiap pesanan awalnya dianggap diproses menggunakan proses OS baru. Kalau jumlah pesanan nya tambah banyak, proses seperti ini akan perlu resource yang lebih besar karena setiap proses punyai overhead dan ruang memorinya sendiri. Jika banyak pesanan masuk secara bersamaan kondisi tersebut bisa membuat penggunaan resource server menjadi berlebihan.
 
-## Studi Kasus
+Karena itu, pada simulasi ini digunakan multithreading. Beberapa pesanan dapat diproses secara bersamaan menggunakan beberapa thread yang berada dalam satu proses. Thread juga dapat menggunakan data yang sama sehingga lebih ringan dibandingkan membuat proses OS baru untuk setiap pesanan. Pada program ini digunakan 10 thread untuk memproses 100 pesanan.
 
-Server FoodGo boros sumber daya karena setiap permintaan pesanan masuk diproses sebagai **proses baru yang berat** (mis. `fork()` proses OS penuh per request). Saat 100 pesanan masuk bersamaan, server kehabisan memori karena tiap proses membawa overhead-nya sendiri.
+Tapi penggunaan thread yang berbagi data juga menimbulkan masalah berupa race condition. Pada program ini beberapa thread mengakses dan mengubah variabel processed_count yang sama. Jika dua atau lebih thread melakukan perubahan pada waktu yang hampir bersamaan, salah satu perubahan dapat tertimpa oleh perubahan thread lainnya.
 
-## Tugas Kelompok
+Hal ini dibuktikan pada percobaan tanpa Lock. Dari 100 pesanan yang diproses nilai processed_count yang diperoleh hanya 35. Seharusnya nilai nya mencapai 100. Perbedaan hasil ini menunjukkan bahwa terjadi race condition karena beberapa pembaruan pada counter tidak tercatat dengan benar.
 
-1. Implementasikan **simulasi pesanan masuk** di Python (`src/order_simulator.py`) yang memproses banyak pesanan **secara konkuren memakai multithreading** (bukan multiprocessing, bukan sekuensial biasa).
-2. Program harus mensimulasikan **race condition yang sengaja dibuat lalu diperbaiki** — buktikan pemahaman kalian tentang `Lock`/sinkronisasi dengan cara:
-   - Jalankan dulu versi TANPA lock, tunjukkan hasil counter yang salah (screenshot/log).
-   - Perbaiki dengan `threading.Lock()`, tunjukkan hasil counter yang benar.
-   - Tulis perbandingan ini di `JURNAL.md`.
-3. Paketkan program ke dalam **Docker container** (`Dockerfile` disediakan skeleton-nya, lengkapi bagian yang kosong).
-4. Jalankan container di laptop, buktikan program tetap berjalan benar di dalam container (screenshot/video di `bukti/`).
+Untuk memperbaiki masalah ini maka digunakan threading.Lock(). Lock digunakan untuk membatasi akses ke bagian yang mengubah processed_count, sehingga hanya satu thread yang bisa melakukan perubahan pada satu waktu. Thread lainnya harus menunggu sampai proses tersebut selesai. Setelah menggunakan Lock, hasil processed_count menjadi 100 dari 100 pesanan.
 
-## Skeleton yang Disediakan
-
-- `src/order_simulator.py` — kerangka program dengan `# TODO` di bagian logika inti (worker function, penggunaan lock, agregasi hasil). **Kalian wajib mengisi bagian TODO sendiri** — ini bagian penilaian utama.
-- `requirements.txt` — kosong/minimal (program ini sengaja hanya pakai standard library Python, tidak perlu dependency eksternal).
-- `Dockerfile` — kerangka dengan beberapa baris `# TODO`, lengkapi agar image bisa di-build dan dijalankan.
-
-## Cara Menjalankan (Setelah Skeleton Dilengkapi)
-
-Tanpa Docker (langsung di laptop, untuk debugging cepat):
-```bash
-cd tugas-03-multithreading-container
-python3 src/order_simulator.py
-```
-
-Dengan Docker (wajib untuk submission akhir):
-```bash
-cd tugas-03-multithreading-container
-docker build -t foodgo-order-sim .
-docker run --rm foodgo-order-sim
-```
-
-## Struktur Submission
-
-```
-tugas-03-multithreading-container/
-├── README.md          # Analisis: race condition, perbaikan, kenapa threading (bukan multiprocessing/proses OS)
-├── JURNAL.md           # Log sebelum/sesudah lock, error yang ditemui saat build Docker
-├── Dockerfile
-├── requirements.txt
-├── src/
-│   └── order_simulator.py
-└── bukti/              # Screenshot/video: hasil counter salah (tanpa lock), hasil benar (dengan lock), container jalan
-```
-
-## Rubrik Penilaian (Tugas 3)
-
-| Komponen | Bobot | Kriteria |
-|---|---|---|
-| Implementasi multithreading benar | 30% | Worker benar-benar konkuren (bukan `time.sleep` yang menyamarkan sekuensial), pakai `threading` |
-| Bukti race condition & perbaikan lock | 25% | Ada bukti nyata (log/screenshot) sebelum & sesudah, bukan cuma klaim di teks |
-| Dockerfile & eksekusi container | 20% | Image ter-build, container jalan dan hasilkan output yang sama seperti tanpa Docker |
-| Analisis (kenapa threading, bukan proses berat) | 15% | Mengaitkan balik ke masalah "server boros resource" di studi kasus |
-| Proses & kontribusi kelompok | 10% | `JURNAL.md`, commit history |
-
-## Batasan Penggunaan AI (Level 2)
-
-Kebijakan **Level 2 (AI Assisted Idea Generation & Structuring)** berlaku — lihat [`../RUBRIK-UMUM.md`](../RUBRIK-UMUM.md). Boleh bertanya ke AI soal opsi umum menangani race condition (mis. "apa saja cara sinkronisasi thread di Python"); **tidak boleh** meminta AI menuliskan isi bagian `# TODO` di `order_simulator.py`/`Dockerfile`. Catat pemakaian AI di "Log Penggunaan AI" pada `JURNAL.md`.
-
-- Bagian `# TODO` di `order_simulator.py` dan `Dockerfile` sengaja dikosongkan — solusi yang identik persis antar kelompok (termasuk nama variabel, komentar) akan diperiksa lebih lanjut.
-- `JURNAL.md` wajib menunjukkan bukti nyata percobaan **sebelum** (race condition muncul) dan **sesudah** (`Lock()` dipasang) — bukan cuma klaim tanpa data pembanding.
+Dari percobaan tersebut dapat dilihat bahwa multithreading lebih sesuai digunakan pada simulasi ini dibandingkan membuat proses OS baru untuk setiap pesanan. Thread dapat bekerja secara bersamaan menggunakan beberapa thread dalam satu proses dan menggunakan data bersama, tetapi data yang dipake bersama harus dilindungi agar tidak terjadi race condition. Penggunaan Lock berhasil membuat hasil perhitungan counter kembali sesuai dengan jumlah pesanan yang diproses.
