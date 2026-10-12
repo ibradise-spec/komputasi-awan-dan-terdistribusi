@@ -19,6 +19,8 @@
 > Wajib diisi sesuai kebijakan Level 2 di [`../RUBRIK-UMUM.md`](../RUBRIK-UMUM.md). Tulis "Tidak memakai AI" pada baris pertama jika memang tidak dipakai. Hanya untuk brainstorming ide/outline — bukan untuk kode/analisis/teks akhir.
 
 | Tanggal | Tool AI | Prompt yang diberikan | Ringkasan saran/ide AI | Bagaimana diolah jadi tulisan/kode sendiri |
+
+
 |11-10-2026|claude|aku mau membuat modul pembayaran yaitu server.py dan pemesanan client.py RPC memakai xmlrpc python berdasarkan skeleton yang aku dapat. apa itu xmlrpc? tolong jelaskan saja apa yang diminta dari TODO" di skeleton. tolong contoh code nya saja yang bisa dipke
 ini skeleton nya: 
 
