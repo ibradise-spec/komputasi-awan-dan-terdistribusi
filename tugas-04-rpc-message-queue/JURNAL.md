@@ -21,7 +21,8 @@
 | Tanggal | Tool AI | Prompt yang diberikan | Ringkasan saran/ide AI | Bagaimana diolah jadi tulisan/kode sendiri |
 
 
-|11-10-2026|claude|aku mau membuat modul pembayaran yaitu server.py dan pemesanan client.py RPC memakai xmlrpc python berdasarkan skeleton yang aku dapat. apa itu xmlrpc? tolong jelaskan saja apa yang diminta dari TODO" di skeleton. tolong contoh code nya saja yang bisa dipke
+|...|...|...|...|
+| 11-10-2026 | claude | aku mau membuat modul pembayaran yaitu server.py dan pemesanan client.py RPC memakai xmlrpc python berdasarkan skeleton yang aku dapat. apa itu xmlrpc? tolong jelaskan saja apa yang diminta dari TODO" di skeleton. tolong contoh code nya saja yang bisa dipke
 ini skeleton nya: 
 
 client.py: 
@@ -83,7 +84,7 @@ TODO 2	Panggil cek_saldo, cetak hasil dan waktu tempuh	Simpan hasil proxy.cek_sa
 TODO 3	Panggil proses_pembayaran	Panggil proxy.proses_pembayaran("user1", 20000) dan cetak dict hasilnya (status dan saldo akhir).
 Urutan menjalankan
 Jalankan server.py di terminal pertama (biarkan berjalan).
-Jalankan client.py di terminal kedua.| # TODO 1: buat ServerProxy ke http://localhost:8000
+Jalankan client.py di terminal kedua. | # TODO 1: buat ServerProxy ke http://localhost:8000
     proxy = xmlrpc.client.ServerProxy("http://localhost:8000")
 
     print("Memanggil cek_saldo('user1') ... menunggu respons sinkron")
@@ -141,6 +142,5 @@ def main():
     server.register_function(proses_pembayaran, "proses_pembayaran")
 
     print("RPC server modul Pembayaran berjalan di port 8000...")
-    server.serve_forever()
-|
-| ... | ... | ... | ... | ... |
+    server.serve_forever() |
+| 11-10-2026 | Chatgpt | apa itu rabbit mqdan apa sih hubungannya dengan biasanya consumer.py dan publisher.py, kasih contoh sekalian jelaskan hubungannya dong| memberikan penjelasan sekaligus memberikan contoh implementasi  | mengisi todo pada folder mq |
