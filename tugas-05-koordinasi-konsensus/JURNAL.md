@@ -1,10 +1,5 @@
 # Jurnal Proses — Tugas 5
 
-## Pemilihan bully algorithm vs raft
-Dalam kasus ini, sistem membutuhkan satu node leader tunggal sebagai single source of truth untuk mengurutkan pesanan pusat (centralized order sequencing) agar tidak terjadi race condition atau pemroresan pesanan ganda akibat clock drift atau jam fisik antar server tidak sinkron.
-Oleh karena itu, dengan adanya bully algorithm, terdapat algoritma yang sangat ringan yang diimplementasikan pada klaster kecil dengan topologi 5 node statis. Pemilihannya deterministik, node dengan ID tertinggi yang hidup pasti menang. Dalam konteks ini, dapat ditetapkan ID tertinggi pada server dengan spesifikasi hardware paling kuat untuk menjadi koordinator antrean.
-Selain itu, tanpa perlu mekanisme randomized election timer atau voting quorum yang kompleks, node dengan ID tertinggi dapat langsung mendeklarasikan dirinya sebagai coordinator begitu mendeteksi ketiadaan node di atasnya.
-
 ## Implementasi Bully
 - Kendala saat mengisi TODO 1-4: ...
 
