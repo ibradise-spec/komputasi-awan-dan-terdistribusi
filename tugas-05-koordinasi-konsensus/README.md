@@ -2,6 +2,53 @@
 
 **Materi terkait:** Physical/Logical Clock, Election Algorithm (Bully/Raft).
 
+## Pemilihan bully algorithm vs raft
+Dalam kasus ini, sistem membutuhkan satu node leader tunggal sebagai single source of truth untuk mengurutkan pesanan pusat (centralized order sequencing) agar tidak terjadi race condition atau pemroresan pesanan ganda akibat clock drift atau jam fisik antar server tidak sinkron.
+Oleh karena itu, dengan adanya bully algorithm, terdapat algoritma yang sangat ringan yang diimplementasikan pada klaster kecil dengan topologi 5 node statis. Pemilihannya deterministik, node dengan ID tertinggi yang hidup pasti menang. Dalam konteks ini, dapat ditetapkan ID tertinggi pada server dengan spesifikasi hardware paling kuat untuk menjadi koordinator antrean.
+Selain itu, tanpa perlu mekanisme randomized election timer atau voting quorum yang kompleks, node dengan ID tertinggi dapat langsung mendeklarasikan dirinya sebagai coordinator begitu mendeteksi ketiadaan node di atasnya.
+
+## Trade off Bully algorithm vs Raft
+Lonjakan jumlah pesan jaringan memiliki komplesiktas komputasi yang tinggi ketika node dengan ID terendah menjadi pihak pertama yang mendeteksi matinya node tertinggi, node terendah akan mengirimkan pesan ELECTION ke node atasnya hingga node tertinggi. Hal ini memicu efek berantai di mana node yang berada di atas node terendah akan memulai sesi election mereka sendiri secara bersamaan. Akibatnya, jaringan dibanjiri oleh pesan election dan ok yang saling tumpang tindih dengan kompleksitas mencapai O(N^2) pesan. Sebaliknya, Raft jauh lebih hemat bandwidth dengan kompleksitas O(N) karena menggunakan randomized election timeout, sehingga umumnya hanya satu kandidat yang aktif lebih dulu dan meminta voting ke node lain tanpa terjadinya pesan serentak.
+
+Dalam jeda Single Point of Failure selama masa transisi leader dari leader lama hingga terpilihnya leader baru, Sistem akan mengalami kekosongan pemimpin. Berdasarkan code yang telah dibuat, jeda ini memakan waktu sekitar 5 deetik, akumulasi dari monitor_leader(3 detik) ditambah elction_timeout(2 detik) sebelum node selanjutnya maju menjadi COORDINATOR. Selama 5 detik ini, tidak adanya koordinator yang bisa mengurutkan pesanan masuk membuat layanan antrean FoodGo tetap mengalami downtime sementara atau penumpukan request.
+
+Karena bully algorithm memenangkan ID tertinggi tanpa melihat riwayat kestabilan node, jika node tertinggi mengalami gangguan perangkat keras yang membuatnya hidup mati secara berulang, setiap kali node 5 menyala kembali ia akan langsung merebut posisi leader dari node 4. Perebutan kepemimpinan yang terus menerus ini akan mengacaukan pemroresan antrean pesan FoodGo. Pada algoritma Raft, node yang baru hidup kembali tidak bisa seenaknya merebut posisi leader selama leader saat ini masih rutin mengirimkan sinyal.
+
+Bully algorithm hanya memilih pemimpin melalui ID tanpa memvalidasi kelengkapan data. Jika terjadi partisi jaringan yang membelah klaster FoodGO menjadi dua kubu terisolasi. Misal {node 1, node2} terputus dari {node 3, node 4}, maka node 2 dan 4 akan sama sama mengira node di atasnya mati dan mendeklarasikan diri sebagai leader di kubunya masing masing. Hal ini memicu munculnya dua leader aktif yang mencatatat urutan pesanan berbeda. Sebaliknya, Raft mencegah split brain dengan mewajibkan persetujuan kuorum mayoritas serta menjamin node yang terpilih sebagai leader adalah node yang memiliki catatan log pesanan paling update.
+
+## 2 Skenario
+# Skenario 1: Start Normal (Node 1–5 Dinyalakan)
+Berdasarkan hasil pengujian terminal, terdapat dua pola menarik tergantung kecepatan eksekusi antar terminal:
+
+Pola Konvergensi Bertahap (Sequential Start - Gambar Terminal Biru):
+
+Saat node dinyalakan berurutan dari Node 1 hingga Node 5 dengan jeda waktu di atas ELECTION_TIMEOUT (2 detik), Node 1 yang belum melihat peer di atasnya sempat melakukan Broadcast COORDINATOR.
+Begitu Node 2 menyala, ia mengambil alih kepemimpinan (Leader baru adalah Node 2), diikuti oleh Node 3, Node 4, dan akhirnya ketika Node 5 menyala, ia memeriksa higher_peers: {} (kosong) dan langsung melakukan Broadcast COORDINATOR. Seluruh Node (1–4) menerima pesan tersebut dan kompak mencatat: Leader baru adalah Node 5.
+
+Pola Konvergensi Serentak (Concurrent Start - Gambar PowerShell Hitam):
+
+Saat semua node aktif hampir bersamaan, Node 1, 2, 3, dan 4 mengirim pesan ELECTION ke ID yang lebih tinggi.
+Node 2, 3, 4, dan 5 membalas OK ke pengirim di bawahnya (memicu ok_event.set()), sehingga Node 1–4 mencetak Menerima OK, menunggu COORDINATOR dan mengurungkan niat menjadi leader.
+Node 5 tidak memiliki peer yang lebih tinggi ({}), sehingga langsung mendeklarasikan diri sebagai leader. Hasil akhir konsisten: Node 5 terpilih sebagai Leader.
+
+# Skenario 2: Leader Mati & Re-Election (Node 5 Dimatikan dengan Ctrl+C)
+
+Deteksi Kegagalan (Failure Detection):
+
+Proses pada Node 5 dihentikan paksa (KeyboardInterrupt).
+Thread monitor_leader() pada Node 1, 2, 3, dan 4 yang berjalan setiap time.sleep(3) detik mencoba mengirim pesan "PING" ke port 5005 milik Node 5.
+Karena socket port 5005 sudah tertutup, send_message() mengembalikan False (ConnectionRefusedError), sehingga Node 1–4 mencetak: Leader Node 5 mati, election ulang.
+
+Proses Pemilihan Ulang (Re-Election):
+
+Node 1 mengirim ELECTION ke {2, 3, 4, 5}, Node 2 mengirim ke {3, 4, 5}, Node 3 mengirim ke {4, 5}, dan Node 4 mengirim ke {5}.   Node 1, 2, dan 3 menerima balasan OK dari node di atasnya yang masih hidup (Node 2, 3, dan 4), sehingga mereka berhenti dan menunggu pesan COORDINATOR.
+Node 4 hanya mengirim ELECTION ke {5: 5005}. Karena Node 5 sudah mati, Node 4 tidak menerima balasan OK hingga batas ELECTION_TIMEOUT (2.0 detik) habis.
+
+Hasil Akhir:
+
+Setelah timeout terlewati, Node 4 memanggil declare_leader(), mencetak node 4 Broadcast COORDINATOR, saya jadi leader, dan mengirimkan pesan tersebut ke seluruh peer.
+Node 1, 2, dan 3 menerima pesan tersebut dan memperbarui status mereka menjadi: Leader baru adalah Node 4. Sistem FoodGo berhasil pulih secara otomatis (self-healing coordination).
+
 ## Studi Kasus
 
 Terjadi konflik urutan waktu pada pesanan FoodGo (dua server mencatat urutan pesanan berbeda karena jam tidak sinkron), dan sistem membutuhkan satu **"Node Leader"** untuk mengelola antrean pesanan pusat agar tidak terjadi konflik pemrosesan ganda.
