@@ -1,5 +1,25 @@
 # Tugas 6 (Pekan 6) — Penamaan & Resolusi Lokasi
 
+## 1. Kurir FoodGo Menggunakan Location-Independent Identifier dibanding alamat IP langsung
+Karena dalam operasional FoodGo, kurir terus berpindah lokasi fisik, sehingga alamat jaringan perangkat kurir selalu berubah ubah.
+
+Jika modul penugasan FoodGo memanggil kurir menggunakan alamat IP secara langsung, maka setiap kali IP kurir berubah, identitas kurir akan terpututs dari sistem. Oleh karena itu, diterapkan pemisahan antara Name/identifier (Ex: kurir-001, kurir-002) yang bersifat location-independent dan address (Ex: 192.168.1.10, 172.16.5.77) atau lokasi jaringan asli tempat paket data harus dikirimkan saat itu.
+
+Dengan arsitektur ini, ketika kurir-001 berganti jaringan dari 192.168.1.10 menjadi 172.16.5.77, nilai hash identitasnya tetap sama yaitu h=50 dan tetap dicari pada node yang sama yaitu node-makassar-1(id=63). Modul lain cukup melakukan lookup berdasarkan ID kurir-001 tanpa perlu tahu perubahan IP di balik layar.
+
+## 3. Analisis saat node baru bergabung dan node keluar
+Keunggulan utama consistent hashing pada DHT FoodGo dibanding hashing konvensional adalah minimalisasi perpindahan data ketika jumlah server berubah. Pada hash % N, menamabahi atau mengurangi 1 server akan mengubah hasil modulo hampir seluruh key. Sebaliknya pada pengujian DHT ini:
+
+### 1. Skenario node join (node-makassar-1 masuk dengan id=63):
+node-makassar-1 (id=63) menyisip di antara node-bandung-1 (id=40) dan node-jakarta-2 (id=102).Ia mengambil alih tanggung jawab rentang hash (40, 63].Dari 4 kurir yang terdaftar, hanya 1 key yang berpindah, yaitu kurir-001 (h=50) yang bergeser dari node-jakarta-2 (id=102) ke node-makassar-1 (id=63) karena 50 kurang dari 63. Tiga key lainnya (kurir-002, kurir-003, kurir-006) sama sekali tidak terganggu dan tetap berada di node masing-masing.
+
+### 2. Skenario Node Leave (node-surabaya-1 dengan id=136 keluar):
+Ketika node-surabaya-1 (id=136) keluar dari ring, tanggung jawab rentang hash miliknya otomatis dilimpahkan ke successor berikutnya searah jarum jam, yaitu node-jakarta-1 (id=177). Terlihat pada log, hanya key milik node yang keluar yang dipindahkan, yaitu kurir-003 (h=132) berpindah dari node-surabaya-1 (id=136) ke node-jakarta-1 (id=177). Key di node Bandung dan Makassar tidak mengalami perubahan.
+
+### 3. Skenario Update Mapping IP (kurir-001 berganti IP):
+Ketika kurir-001 (h=50) memperbarui alamat IP-nya dari 192.168.1.10 ke 172.16.5.77, operasi REGISTER langsung menimpa (overwrite) nilai alamat di node-makassar-1 (id=63) tanpa mengubah posisi penyimpanan key di dalam ring.
+
+
 **Materi terkait:** Flat Naming, Structured Naming (DNS), Distributed Hash Table (DHT)/Chord.
 
 ## Studi Kasus
