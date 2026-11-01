@@ -6,6 +6,57 @@ Karena dalam operasional FoodGo, kurir terus berpindah lokasi fisik, sehingga al
 Jika modul penugasan FoodGo memanggil kurir menggunakan alamat IP secara langsung, maka setiap kali IP kurir berubah, identitas kurir akan terpututs dari sistem. Oleh karena itu, diterapkan pemisahan antara Name/identifier (Ex: kurir-001, kurir-002) yang bersifat location-independent dan address (Ex: 192.168.1.10, 172.16.5.77) atau lokasi jaringan asli tempat paket data harus dikirimkan saat itu.
 
 Dengan arsitektur ini, ketika kurir-001 berganti jaringan dari 192.168.1.10 menjadi 172.16.5.77, nilai hash identitasnya tetap sama yaitu h=50 dan tetap dicari pada node yang sama yaitu node-makassar-1(id=63). Modul lain cukup melakukan lookup berdasarkan ID kurir-001 tanpa perlu tahu perubahan IP di balik layar.
+## 2. Diagram Ring Topology Chord DHT FoodGo
+
+Simulasi menggunakan ruang hash 8-bit (0–255). Node diurutkan menurut ID hash dan dihubungkan secara melingkar searah jarum jam. Sesuai aturan Chord, setiap key kurir ditempatkan pada node pertama yang ID-nya lebih besar atau sama dengan nilai hash kurir tersebut (*successor*). Jika tidak ada node dengan ID yang cukup besar, pencarian berputar ke node ber-ID paling kecil (*wrap-around*).
+
+### A. Ring awal (4 node)
+
+```mermaid
+flowchart LR
+    B["node-bandung-1<br/>ID = 40<br/>kurir-002 (h=28)<br/>kurir-006 (h=217)"]
+    J2["node-jakarta-2<br/>ID = 102<br/>kurir-001 (h=50)"]
+    S["node-surabaya-1<br/>ID = 136<br/>kurir-003 (h=132)"]
+    J1["node-jakarta-1<br/>ID = 177<br/>Tidak menyimpan kurir"]
+
+    B --> J2 --> S --> J1
+    J1 -->|wrap-around| B
+```
+
+Pada kondisi awal, `kurir-002 (h=28)` dan `kurir-006 (h=217)` menjadi tanggung jawab Bandung (id=40); `kurir-001 (h=50)` menjadi tanggung jawab Jakarta-2 (id=102); dan `kurir-003 (h=132)` menjadi tanggung jawab Surabaya (id=136). Kurir-006 menggunakan *wrap-around* karena hash 217 lebih besar daripada ID node terbesar, yaitu 177.
+
+### B. Ring setelah node Makassar bergabung (5 node)
+
+```mermaid
+flowchart LR
+    B["node-bandung-1<br/>ID = 40<br/>kurir-002 (h=28)<br/>kurir-006 (h=217)"]
+    M["node-makassar-1<br/>ID = 63<br/>kurir-001 (h=50)"]
+    J2["node-jakarta-2<br/>ID = 102<br/>Tidak menyimpan kurir"]
+    S["node-surabaya-1<br/>ID = 136<br/>kurir-003 (h=132)"]
+    J1["node-jakarta-1<br/>ID = 177<br/>Tidak menyimpan kurir"]
+
+    B --> M --> J2 --> S --> J1
+    J1 -->|wrap-around| B
+    style M fill:#d6f5e3,stroke:#238b56,stroke-width:3px
+```
+
+Saat Makassar (id=63) bergabung di antara Bandung (id=40) dan Jakarta-2 (id=102), hanya `kurir-001 (h=50)` yang berpindah dari Jakarta-2 ke Makassar. Kurir lainnya tetap berada pada node sebelumnya.
+
+### C. Ring setelah node Surabaya keluar (4 node)
+
+```mermaid
+flowchart LR
+    B["node-bandung-1<br/>ID = 40<br/>kurir-002 (h=28)<br/>kurir-006 (h=217)"]
+    M["node-makassar-1<br/>ID = 63<br/>kurir-001 (h=50)"]
+    J2["node-jakarta-2<br/>ID = 102<br/>Tidak menyimpan kurir"]
+    J1["node-jakarta-1<br/>ID = 177<br/>kurir-003 (h=132)"]
+
+    B --> M --> J2 --> J1
+    J1 -->|wrap-around| B
+    style J1 fill:#fff1c9,stroke:#b77b00,stroke-width:3px
+```
+
+Setelah Surabaya (id=136) keluar, `kurir-003 (h=132)` berpindah ke Jakarta-1 (id=177) sebagai *successor* berikutnya. Mapping untuk kurir-001, kurir-002, dan kurir-006 tetap pada node sebelumnya.
 
 ## 3. Analisis saat node baru bergabung dan node keluar
 Keunggulan utama consistent hashing pada DHT FoodGo dibanding hashing konvensional adalah minimalisasi perpindahan data ketika jumlah server berubah. Pada hash % N, menamabahi atau mengurangi 1 server akan mengubah hasil modulo hampir seluruh key. Sebaliknya pada pengujian DHT ini:
