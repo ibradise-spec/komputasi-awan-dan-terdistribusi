@@ -13,7 +13,27 @@ Data saldo *e-wallet* pelanggan FoodGo berbeda antara server wilayah **Jakarta**
 1. Tentukan: apakah kasus ini **membutuhkan Sequential Consistency** (semua replika melihat urutan operasi yang sama) atau **cukup Eventual Consistency** (replika akan konsisten "pada akhirnya", boleh sementara berbeda)? Berikan argumen berbasis dampak bisnis (mis. kasus saldo *e-wallet* jauh lebih sensitif dibanding kasus "jumlah like" di media sosial).
 2. Jika kalian menyimpulkan Eventual Consistency saja **tidak cukup** untuk skenario ini, usulkan pendekatan **Client-Centric Consistency** yang relevan (mis. *Read-Your-Writes*: pelanggan yang baru top-up harus selalu melihat saldo terbarunya sendiri, walau replika lain belum sinkron).
 3. Gambarkan **diagram alir urutan (sequence diagram)** yang menunjukkan operasi read/write antara pelanggan, server Jakarta, server Bandung, dan proses replikasi — untuk skenario **tanpa** jaminan konsistensi (bug terjadi) DAN skenario **dengan** solusi yang kalian usulkan (bug teratasi). Pakai Mermaid (`sequenceDiagram`) di `README.md` — lihat contoh cara pakai di Tugas 2.
-## Sequence Diagram
+
+
+## 1. Apakah kasus saldo E-Wallet FoodGo membutuhkan sequential consistency atau cukup eventual consistency?
+Untuk kasus saldo e-wallet dan transaksi pembayaran pada aplikasi FoodGo, Eventual Consistency saja tidak cukup dan berisiko tinggi merusak bisnis. Sistem ini membutuhkan jaminan konsistensi yang lebih kuat seperti Client-Centric Consistency atau Sequential/Linearizability pada tingkat akun pengguna.
+
+### Kenapa eventual consistency berbahaya untuk saldo E-Wallet?
+Karena Eventual Consistency hanya menjamin bahwa semua replika server (misal Jakarta dan Bandung) akan menjadi konsisten "pada akhirnya" (eventually) jika tidak ada operasi tulis baru dalam jangka waktu tertentu. Namun, dalam jeda waktu sebelum replikasi selesai (replication lag), data antar server akan berbeda (stale data).
+
+### Analisis dampak bisnis
+Berbeda dengan kasus "jumlah like" atau "komentar" di media sosial yang mana keterlambatan sinkronisasi selama beberapa detik tidak menimbulkan kerugian finansial atau hukum kasus saldo e-wallet menyangkut aset keuangan riil. Jika pelanggan melakukan top up di server Jakarta lalu dalam hitungan detik memesan makanan melalui server Bandung yang belum menerima data terbaru, transaksi pelanggan akan ditolak karena saldo terbaca Rp0. Hal ini memicu false rejection, menurunkan user experience secara drastis, hilangnya kepercayaan pelanggan (customer churn), serta potensi kerugian komersial bagi merchant FoodGo.
+
+## 2. Mengapa Read-Your-Writes menjadi solusi yang relevan?
+Karena penerapan Sequential Consistency global di seluruh pusat data geografis (Jakarta, Bandung, dll.) akan memicu latensi jaringan yang sangat tinggi setiap kali ada transaksi karena harus menunggu semua server di seluruh wilayah mengonfirmasi data secara bersamaan, solusi yang paling realistis dan efisien untuk arsitektur geo distributed adalah menggunakan Client-Centric Consistency, khususnya model Read-Your-Writes Consistency.
+
+### Definisi & cara kerja Read-Your-Writes
+Model ini menjamin bahwa proses tulis (write) yang dilakukan oleh seorang klien tertentu akan selalu dapat dibaca oleh klien yang sama pada akses baca (read) berikutnya, terlepas dari server mana ia terhubung, bahkan jika replika lain di wilayah tersebut belum melakukan sinkronisasi.
+
+## Implementasi teknis pada FoodGo
+Ketika pelanggan melakukan top up saldo di server Jakarta, server tersebut menghasilkan nomor versi transaksi (version number atau timestamp). Saat merespons sukses top up ke aplikasi ponsel pelanggan, server Jakarta mengirimkan metadata versi tersebut (misal: version = 1). Ketika pelanggan melakukan checkout makanan (walaupun terhubung ke server Bandung), aplikasi ponsel menyertakan parameter versi minimal tersebut (versi_minimal = 1). Server Bandung memeriksa versinya sendiri, jika versi data lokal < versi_minimal, server Bandung akan melakukan redirect pembacaan langsung ke server Jakarta atau menunggu hingga data terbarunya tersinkronisasi. Dengan cara ini, pelanggan dijamin tidak akan pernah melihat saldo lamanya sendiri.
+
+## 3. Sequence Diagram
 
 ### a) Tanpa jaminan konsistensi (bug terjadi)
 
