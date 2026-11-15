@@ -13,6 +13,50 @@ Data saldo *e-wallet* pelanggan FoodGo berbeda antara server wilayah **Jakarta**
 1. Tentukan: apakah kasus ini **membutuhkan Sequential Consistency** (semua replika melihat urutan operasi yang sama) atau **cukup Eventual Consistency** (replika akan konsisten "pada akhirnya", boleh sementara berbeda)? Berikan argumen berbasis dampak bisnis (mis. kasus saldo *e-wallet* jauh lebih sensitif dibanding kasus "jumlah like" di media sosial).
 2. Jika kalian menyimpulkan Eventual Consistency saja **tidak cukup** untuk skenario ini, usulkan pendekatan **Client-Centric Consistency** yang relevan (mis. *Read-Your-Writes*: pelanggan yang baru top-up harus selalu melihat saldo terbarunya sendiri, walau replika lain belum sinkron).
 3. Gambarkan **diagram alir urutan (sequence diagram)** yang menunjukkan operasi read/write antara pelanggan, server Jakarta, server Bandung, dan proses replikasi — untuk skenario **tanpa** jaminan konsistensi (bug terjadi) DAN skenario **dengan** solusi yang kalian usulkan (bug teratasi). Pakai Mermaid (`sequenceDiagram`) di `README.md` — lihat contoh cara pakai di Tugas 2.
+## Sequence Diagram
+
+### a) Tanpa jaminan konsistensi (bug terjadi)
+
+```mermaid
+sequenceDiagram
+    participant P as Pelanggan
+    participant J as Server Jakarta
+    participant R as Proses Replikasi
+    participant B as Server Bandung
+
+    P->>J: Top-up Rp50.000
+    J->>J: WRITE saldo = 50.000 (v1)
+    J-->>P: OK
+    J->>R: Kirim update v1 (delay 2 detik)
+    P->>B: Pesan makanan (cek saldo)
+    B->>B: READ saldo lokal = 0 (stale)
+    B-->>P: DITOLAK, saldo tidak cukup (BUG)
+    R->>B: Terapkan update v1
+    B->>B: WRITE saldo = 50.000 (v1)
+    Note over B: Replikasi terlambat, transaksi sudah gagal
+```
+
+### b) Dengan Read-Your-Writes (bug teratasi)
+
+```mermaid
+sequenceDiagram
+    participant P as Pelanggan
+    participant J as Server Jakarta
+    participant R as Proses Replikasi
+    participant B as Server Bandung
+
+    P->>J: Top-up Rp50.000
+    J->>J: WRITE saldo = 50.000 (v1)
+    J-->>P: OK + versi v1 (client simpan versi_minimal = 1)
+    J->>R: Kirim update v1 (delay 2 detik)
+    P->>B: Pesan makanan + versi_minimal = 1
+    B->>B: Versi lokal (0) < versi_minimal (1)
+    B->>J: Redirect baca saldo ke Jakarta
+    J-->>B: saldo = 50.000 (v1)
+    B-->>P: Transaksi DITERIMA (saldo benar)
+    R->>B: Terapkan update v1 (menyusul)
+    B->>B: WRITE saldo = 50.000 (v1)
+```
 
 ### Bagian 2 — Simulasi (opsional, nilai tambah)
 
