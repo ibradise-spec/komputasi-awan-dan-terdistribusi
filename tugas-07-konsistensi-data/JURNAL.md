@@ -6,7 +6,9 @@
 
 ## Simulasi (jika dikerjakan)
 - Hasil skenario naif vs Read-Your-Writes:
+
 Pada skenario naif top-up Rp50.000 ditulis ke Jakarta. Saat saldo dibaca dari Bandung 0,5 detik kemudian, hasilnya 0.0 (stale), seharusnya 50000, jadi bug inconsistent read terbukti. Bandung baru menerima update setelah delay replikasi 2 detik.
+
 Pada skenario Read-Your-Writes top-up Rp20.000 membuat saldo menjadi 70000. Saat dibaca dari Bandung segera setelahnya, hasilnya 70000.0 (benar), karena versi lokal Bandung lebih kecil dari versi_minimal sehingga pembacaan dialihkan ke Jakarta. 
 
 ## Log Penggunaan AI (Level 2)
