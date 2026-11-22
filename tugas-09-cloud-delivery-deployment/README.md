@@ -18,6 +18,35 @@ Pemerintah ingin membangun **Sistem Data Kependudukan** (nama, NIK, alamat, data
 3. Jelaskan **minimal 2 risiko spesifik** dari pilihan kalian dan mitigasinya (mis. jika Hybrid Cloud dipilih: risiko sinkronisasi data antara private & public segment).
 4. Bandingkan singkat dengan **satu alternatif yang kalian tolak** — kenapa alternatif itu kurang tepat (mis. kenapa Public Cloud murni ditolak, atau kenapa Private Cloud murni dianggap kurang skalabel).
 
+## 1. Rekomendasi Deployment Model
+
+Kami merekomendasikan Hybrid Cloud. Data inti (database kependudukan, biometrik, dan manajemen kunci enkripsi) tetap di private cloud milik pemerintah. Lapisan yang bersifat stateless dan tidak menyimpan data pribadi mentah (portal cek status, API gateway di sisi depan, cache non-sensitif) dapat melakukan scale-out ke public cloud saat terjadi lonjakan akses.
+
+### Berdasrakan prinsip NIST
+
+On-demand self-service. Tim pengelola dan instansi dapat melakukan provisioning environment, API key, dan kuota secara mandiri tanpa tiket manual. Saat menjelang pemilu, tim pusat dapat menambah kapasitas di public cloud tanpa proses pengadaan hardware baru.
+
+Broad network access. Ribuan instansi dengan jenis klien berbeda (sistem dukcapil daerah, sistem kepolisian, core system bank) mengakses lewat mekanisme standar, yaitu API berbasis HTTPS dengan mutual TLS melalui API gateway. Jangkauan luas ini dicapai tanpa membuka database langsung ke jaringan luar.
+
+Resource pooling. Private cloud melayani banyak instansi dari satu pool sumber daya dengan isolasi per tenant (RBAC dan kebijakan akses per instansi). Public cloud menambahkan pool kapasitas untuk beban non sensitif. Karena pool di public cloud hanya berisi komponen stateless, risiko multi tenancy terhadap data sensitif dapat dihindari.
+
+Rapid elasticity. Saat terjadi lonjakan, request yang tidak membutuhkan akses PII mentah dialihkan ke kapasitas di public cloud (cloud bursting), sedangkan database inti tidak ikut keluar. Dengan cara ini sistem tetap responsif saat beban memuncak, risiko downtime berkurang, dan kerahasiaan data tetap terjaga. Ketika beban turun, kapasitas tambahan dilepas kembali.
+
+Measured service. Pemakaian tiap instansi diukur lewat rate limiting, kuota, dan audit log akses. Ini memudahkan deteksi akses anomali dan memungkinkan alokasi biaya kapasitas burst ke instansi pengguna.
+
+## 4. Alternatif yang ditolak
+Public cloud murni unggul di rapid elasticity dan on-demand self-service, dan kami mengakui bahwa kebutuhan skalabilitas sistem ini terpenuhi dengan baik. Namun alternatif ini kurang tepat karena beberapa alasan;
+
+Kedaulatan data dan yurisdiksi. Data yang disimpan di provider publik, terutama provider asing, dapat berada di bawah yurisdiksi hukum negara lain dan berpotensi berbenturan dengan aturan lokalisasi data bagi penyelenggara sistem elektronik lingkup publik. Pemerintah tidak dapat menjamin sepenuhnya bahwa data warga hanya tunduk pada hukum Indonesia.
+
+Kendali infrastruktur terbatas. Dalam shared responsibility model, provider memegang lapisan fisik, hypervisor, dan operasional infrastrukturnya. Pemerintah tidak mengontrol siapa yang mengelola lapisan tersebut maupun bagaimana prosesnya diaudit.
+
+Multi-tenancy pada data paling sensitif. Resource pooling di public cloud berarti sumber daya fisik dipakai bersama banyak pelanggan. Untuk data biasa risiko ini dapat diterima, tetapi untuk data kependudukan dan biometrik, risiko isolasi menjadi tidak baik dimiliki.
+
+Dampak kebocoran yang permanen. Data biometrik tidak dapat diganti seperti password. Sekali bocor, dampaknya melekat pada warga seumur hidup.
+
+Enkripsi tidak menyelesaikan semuanya. Enkripsi dan customer managed key memang memperkecil risiko, tetapi tidak menghilangkan masalah yurisdiksi dan keterbatasan kendali atas infrastruktur.
+
 ## Struktur Submission
 
 ```
