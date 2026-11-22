@@ -34,6 +34,15 @@ Rapid elasticity. Saat terjadi lonjakan, request yang tidak membutuhkan akses PI
 
 Measured service. Pemakaian tiap instansi diukur lewat rate limiting, kuota, dan audit log akses. Ini memudahkan deteksi akses anomali dan memungkinkan alokasi biaya kapasitas burst ke instansi pengguna.
 
+## 2. Rekomendasikan Service Model
+Kami merekomendasikan pendekatan multi-service model yang membagi model layanan sesuai kebutuhan spesifik tiap komponen sistem kependudukan:
+
+Untuk database inti kependudukan, mesin biometrik, dan modul enkripsi (HSM), kami memilih Infrastructure as a Service (IaaS) di lingkungan private cloud. Komponen vital ini menyimpan data warga yang sangat rahasia, sehingga pemerintah wajib memegang kendali penuh hingga tingkat sistem operasi, konfigurasi kernel, dan isolasi fisik penyimpanan tanpa campur tangan lapisan abstraksi pihak ketiga.
+
+Untuk lapisan microservices, API gateway verifikasi mitra, dan sistem antrean data, kami merekomendasikan Platform as a Service (PaaS). Model ini mempermudah tim pengembang dalam mengelola kontainer, load balancing, dan auto-scaling tanpa repot mengurus perangkat keras. Melalui PaaS, lapisan stateless ini dapat melakukan ekspansi kapasitas (cloud bursting) secara instan ke public cloud saat terjadi lonjakan akses pemilu atau pendaftaran sekolah.
+
+Pada lapisan antarmuka pengguna, kami menerapkan Software as a Service (SaaS) untuk portal cek status KTP oleh warga serta dasbor kerja petugas Dukcapil daerah. Dengan model SaaS, ribuan instansi dan staf daerah cukup mengakses aplikasi siap pakai melalui peramban web yang diamankan dengan RBAC dan MFA, tanpa perlu melakukan instalasi, konfigurasi, maupun pemeliharaan perangkat lunak di perangkat lokal.
+
 ## 4. Alternatif yang ditolak
 Public cloud murni unggul di rapid elasticity dan on-demand self-service, dan kami mengakui bahwa kebutuhan skalabilitas sistem ini terpenuhi dengan baik. Namun alternatif ini kurang tepat karena beberapa alasan;
 
