@@ -43,6 +43,44 @@ Untuk lapisan microservices, API gateway verifikasi mitra, dan sistem antrean da
 
 Pada lapisan antarmuka pengguna, kami menerapkan Software as a Service (SaaS) untuk portal cek status KTP oleh warga serta dasbor kerja petugas Dukcapil daerah. Dengan model SaaS, ribuan instansi dan staf daerah cukup mengakses aplikasi siap pakai melalui peramban web yang diamankan dengan RBAC dan MFA, tanpa perlu melakukan instalasi, konfigurasi, maupun pemeliharaan perangkat lunak di perangkat lokal.
 
+
+## 3. Risiko Spesifik dan Mitigasinya
+
+Pemilihan Hybrid Cloud memiliki beberapa risiko yang perlu diperhatikan, terutama karena sistem menggabungkan private cloud dan public cloud. Oleh karena itu, diperlukan langkah mitigasi agar keamanan data kependudukan dan ketersediaan layanan tetap terjaga.
+
+### 3.1 Risiko Kebocoran Data Pribadi
+
+Salah satu risiko penggunaan Hybrid Cloud adalah kebocoran data akibat komunikasi antara private cloud dan public cloud. Kesalahan konfigurasi sistem, lemahnya keamanan API, atau akses dari pihak yang tidak berwenang dapat mengancam kerahasiaan data kependudukan, terutama NIK dan data biometrik.
+
+**Mitigasi:**
+
+- Menerapkan enkripsi TLS/mTLS untuk mengamankan komunikasi antara private cloud dan public cloud.
+- Menggunakan Role-Based Access Control (RBAC) dan Multi-Factor Authentication (MFA) agar hanya pihak yang memiliki izin yang dapat mengakses sistem.
+- Menyimpan seluruh data sensitif di private cloud pemerintah, sedangkan public cloud hanya digunakan untuk menjalankan layanan yang tidak menyimpan data pribadi mentah.
+
+### 3.2 Risiko Ketidakkonsistenan Informasi
+
+Penggunaan dua lingkungan cloud dapat menimbulkan keterlambatan pembaruan informasi, terutama apabila terjadi gangguan jaringan atau keterlambatan komunikasi antarlayanan. Sebagai contoh, perubahan status perekaman KTP yang sudah tercatat pada database inti belum langsung ditampilkan pada portal publik karena informasi yang tersimpan dalam cache belum diperbarui.
+
+**Mitigasi:**
+
+- Menjadikan database di private cloud sebagai sumber data utama (*single source of truth*) agar informasi kependudukan tetap terpusat.
+- Menggunakan message queue untuk mengatur proses pembaruan informasi non-sensitif dan menangani kegagalan komunikasi.
+- Menerapkan timestamp dan mekanisme pembaruan cache agar informasi yang ditampilkan tetap sesuai dengan data terbaru.
+
+### 3.3 Risiko Gangguan Layanan saat Lonjakan Akses
+
+Meskipun Hybrid Cloud memiliki keunggulan dalam skalabilitas, lonjakan akses tetap berpotensi menyebabkan gangguan layanan. Hal ini disebabkan karena peningkatan kapasitas pada public cloud tidak secara langsung meningkatkan kapasitas database inti di private cloud. Sebagai contoh, ketika musim pemilu atau pendaftaran sekolah, jumlah permintaan yang tinggi dapat menyebabkan server database mengalami kelebihan beban.
+
+**Mitigasi:**
+
+- Menggunakan load balancing untuk membagi permintaan pengguna secara merata dan auto-scaling untuk menyesuaikan kapasitas layanan pada public cloud.
+- Menerapkan rate limiting agar jumlah permintaan dari setiap instansi dapat dikendalikan sehingga tidak membebani database inti.
+- Menyediakan kapasitas cadangan dan melakukan pemantauan kinerja sistem secara berkala untuk mengantisipasi gangguan layanan.
+
+Berdasarkan ketiga risiko tersebut, kami menilai bahwa Hybrid Cloud tetap menjadi pilihan yang sesuai untuk Sistem Data Kependudukan. Dengan menerapkan langkah mitigasi yang tepat, pemerintah dapat menjaga kerahasiaan data pribadi warga sekaligus memanfaatkan kemampuan skalabilitas public cloud untuk menangani lonjakan akses.
+
+
 ## 4. Alternatif yang ditolak
 Public cloud murni unggul di rapid elasticity dan on-demand self-service, dan kami mengakui bahwa kebutuhan skalabilitas sistem ini terpenuhi dengan baik. Namun alternatif ini kurang tepat karena beberapa alasan;
 
