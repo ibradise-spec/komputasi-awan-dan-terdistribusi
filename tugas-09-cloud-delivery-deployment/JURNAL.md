@@ -5,9 +5,9 @@
 
 ## Diskusi service model per komponen
 - Pembagian tanggung jawab layanan per komponen: Kami menyepakati pendekatan multi-service model agar beban pengelolaan tepat sasaran:
-IaaS di Private Cloud: Dikhususkan untuk Database Inti Kependudukan, Mesin Biometrik, dan HSM. Pemerintah memegang kendali penuh hingga level OS, kernel, dan enkripsi perangkat keras fisik untuk audit menyeluruh.
-PaaS di Lapisan Hybrid: Dipilih untuk API Gateway verifikasi mitra dan microservices. Model ini membebaskan pengembang dari konfigurasi server fisik dan memfasilitasi orkestrasi kontainer serta auto-scaling otomatis saat cloud bursting.
-SaaS di Lapisan Klien: Digunakan untuk Portal Cek KTP publik dan Dasbor Petugas Dukcapil Daerah. Menghilangkan kerumitan instalasi maupun maintenance di perangkat daerah, cukup diakses via peramban web dengan otentikasi ketat RBAC dan MFA.
+1. IaaS di Private Cloud: Dikhususkan untuk Database Inti Kependudukan, Mesin Biometrik, dan HSM. Pemerintah memegang kendali penuh hingga level OS, kernel, dan enkripsi perangkat keras fisik untuk audit menyeluruh.
+2. PaaS di Lapisan Hybrid: Dipilih untuk API Gateway verifikasi mitra dan microservices. Model ini membebaskan pengembang dari konfigurasi server fisik dan memfasilitasi orkestrasi kontainer serta auto-scaling otomatis saat cloud bursting.
+3. SaaS di Lapisan Klien: Digunakan untuk Portal Cek KTP publik dan Dasbor Petugas Dukcapil Daerah. Menghilangkan kerumitan instalasi maupun maintenance di perangkat daerah, cukup diakses via peramban web dengan otentikasi ketat RBAC dan MFA.
 
 ## Log Penggunaan AI (Level 2)
 
